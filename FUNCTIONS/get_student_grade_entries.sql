@@ -1,7 +1,7 @@
 CREATE OR REPLACE FUNCTION get_student_grade_entries(
     p_student_id INT,
-    p_start_date DATE,
-    p_end_date DATE
+    p_start_date DATE DEFAULT (CURRENT_DATE - INTERVAL '2 days')::DATE,
+    p_end_date DATE DEFAULT (CURRENT_DATE + INTERVAL '7 days')::DATE
 )
 RETURNS TABLE (
     lesson_date DATE,

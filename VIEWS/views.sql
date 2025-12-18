@@ -87,7 +87,7 @@ FROM Students s
 JOIN StudentData sd ON sd.student_id = s.student_id
 JOIN Lessons l ON l.lesson_id = sd.lesson
 WHERE sd.mark IS NOT NULL
-  AND l.lesson_date BETWEEN '2024-09-01' AND '2025-06-30'
+  AND l.lesson_date BETWEEN '2025-09-01' AND '2026-06-30'
 GROUP BY s.student_class;
 
 CREATE OR REPLACE VIEW vw_student_ranking AS
@@ -104,5 +104,5 @@ FROM Students s
 JOIN StudentData sd ON sd.student_id = s.student_id
 JOIN Lessons l ON l.lesson_id = sd.lesson
 WHERE sd.mark IS NOT NULL
-  AND l.lesson_date BETWEEN '2024-09-01' AND '2025-06-30'
+  AND l.lesson_date BETWEEN '2025-09-01' AND '2026-06-30'
 GROUP BY s.student_id, s.student_name, s.student_class;
