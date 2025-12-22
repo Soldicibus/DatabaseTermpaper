@@ -11,7 +11,7 @@ BEGIN
         SELECT 1 FROM users WHERE user_id = p_id
     ) THEN
         RAISE EXCEPTION 'User % does not exist', p_id
-        USING ERRCODE = '22003';
+        USING ERRCODE = 'P0002';
     END IF;
 
     p_username := NULLIF(trim(p_username), '');
@@ -31,6 +31,10 @@ BEGIN
         RAISE EXCEPTION 'Email % already exists', p_email
         USING ERRCODE = '23505';
     END IF;
+
+    IF p_password IS NOT NULL THEN
+	    p_password := crypt(p_password, gen_salt('bf'));
+	END IF;
 
     UPDATE users
     SET

@@ -4,16 +4,20 @@ CREATE OR REPLACE FUNCTION get_student_grade_entries(
     p_end_date DATE DEFAULT (CURRENT_DATE + INTERVAL '7 days')::DATE
 )
 RETURNS TABLE (
+    lesson_id INT,
     lesson_date DATE,
     subject_name TEXT,
+    data_id INT,
     mark SMALLINT,
     status TEXT
 )
 LANGUAGE sql
 AS $$
     SELECT
+	l.lesson_id,
         l.lesson_date,
         s.subject_name,
+	s.data_id,
         sd.mark,
         sd.status
     FROM StudentData sd

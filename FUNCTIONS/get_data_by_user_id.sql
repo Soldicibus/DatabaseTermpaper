@@ -6,6 +6,7 @@ RETURNS TABLE (
     entity_id INT,
     name VARCHAR,
     surname VARCHAR,
+    patronym VARCHAR,
     email VARCHAR,
     phone VARCHAR
 )
@@ -17,10 +18,11 @@ BEGIN
     ) THEN
         RETURN QUERY
         SELECT
-            'student',
+            get_user_role(p_user_id)::TEXT,
             s.student_id,
             s.student_name,
             s.student_surname,
+	        s.student_patronym,
             u.email,
             s.student_phone
         FROM students s
@@ -31,10 +33,11 @@ BEGIN
     ) THEN
         RETURN QUERY
         SELECT
-            'teacher',
+            get_user_role(p_user_id)::TEXT,
             t.teacher_id,
             t.teacher_name,
             t.teacher_surname,
+			t.teacher_patronym,
             u.email,
             t.teacher_phone
         FROM teacher t
@@ -45,10 +48,11 @@ BEGIN
     ) THEN
         RETURN QUERY
         SELECT
-            'parent',
+            get_user_role(p_user_id)::TEXT,
             p.parent_id,
             p.parent_name,
             p.parent_surname,
+			p.parent_patronym,
             u.email,
             p.parent_phone
         FROM parents p

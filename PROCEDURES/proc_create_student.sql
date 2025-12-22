@@ -1,10 +1,11 @@
-CREATE OR REPLACE PROCEDURE proc_create_parent(
+CREATE OR REPLACE PROCEDURE proc_create_student(
     IN p_name VARCHAR(50),
     IN p_surname VARCHAR(50),
     IN p_patronym VARCHAR(50),
     IN p_phone VARCHAR(20),
     IN p_user_id INTEGER,
-    OUT new_parent_id INTEGER,
+	IN p_class varchar(10),
+    OUT new_student_id INTEGER,
     OUT generated_password TEXT
 )
 LANGUAGE plpgsql
@@ -15,7 +16,7 @@ DECLARE
     v_email TEXT;
     v_password TEXT;
     v_patronym_part TEXT;
-    v_parent_role_id INT;
+    v_student_role_id INT;
 BEGIN
 	generated_password := NULL;
     /* ---------- Normalize input ---------- */
@@ -25,8 +26,15 @@ BEGIN
     p_phone := NULLIF(trim(p_phone), '');
 
     IF p_name IS NULL OR p_surname IS NULL OR p_phone IS NULL THEN
-        RAISE EXCEPTION 'Required parent fields cannot be empty'
+        RAISE EXCEPTION 'Required student fields cannot be empty'
         USING ERRCODE = '23514';
+    END IF;
+
+	IF NOT EXISTS (
+        SELECT 1 FROM class WHERE class_name = p_class
+    ) THEN
+        RAISE EXCEPTION 'Class % does not exist', p_class
+        USING ERRCODE = '22003';
     END IF;
 
     /* ---------- If user is provided, validate ---------- */
@@ -71,36 +79,38 @@ BEGIN
             v_user_id
         );
 
-        /* ---------- Assign parent role ---------- */
+        /* ---------- Assign student role ---------- */
         SELECT role_id
-        INTO v_parent_role_id
+        INTO v_student_role_id
         FROM roles
-        WHERE role_name = 'Parent';
+        WHERE role_name = 'Student';
 
-        IF v_parent_role_id IS NULL THEN
-            RAISE EXCEPTION 'Role parent does not exist';
+        IF v_student_role_id IS NULL THEN
+            RAISE EXCEPTION 'Role student does not exist';
         END IF;
 
-        CALL proc_assign_role_to_user(v_user_id, v_parent_role_id);
+        CALL proc_assign_role_to_user(v_user_id, v_student_role_id);
 
         RAISE NOTICE 'Generated password for %: %', v_username, v_password;
     END IF;
 
     /* ---------- Create parent entity ---------- */
-    INSERT INTO parents (
-        parent_name,
-        parent_surname,
-        parent_patronym,
-        parent_phone,
-        parent_user_id
+    INSERT INTO students (
+        student_name,
+        student_surname,
+        student_patronym,
+        student_phone,
+        student_user_id,
+		student_class
     )
     VALUES (
         p_name,
         p_surname,
         p_patronym,
         p_phone,
-        v_user_id
+        v_user_id,
+		p_class
     )
-    RETURNING parent_id INTO new_parent_id;
+    RETURNING student_id INTO new_student_id;
 END;
 $$;
