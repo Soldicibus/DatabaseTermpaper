@@ -1,7 +1,8 @@
 CREATE OR REPLACE PROCEDURE proc_update_day
 (
     IN p_id integer,
-    IN p_name varchar(255) DEFAULT NULL,
+    IN p_subject integer,
+	IN p_timetable integer,
     IN p_time time DEFAULT NULL,
     IN p_weekday varchar(20) DEFAULT NULL
 )
@@ -14,15 +15,21 @@ BEGIN
         RAISE EXCEPTION 'Day % does not exist', p_id
         USING ERRCODE = '22003';
     END IF;
-
-    p_name := NULLIF(trim(p_name), '');
-    p_weekday := NULLIF(trim(p_weekday), '');
-
-    -- validate name if provided
-    IF p_name IS NOT NULL AND length(p_name) = 0 THEN
-        RAISE EXCEPTION 'Day name cannot be empty'
-        USING ERRCODE = '23514';
+	
+	IF NOT EXISTS (
+        SELECT 1 FROM timetable WHERE timetable_id = p_timetable
+    ) THEN
+        RAISE EXCEPTION 'Timetable % does not exist', p_timetable
+        USING ERRCODE = '22003';
     END IF;
+
+	IF NOT EXISTS (
+        SELECT 1 FROM subjects WHERE subject_id = p_subject
+    ) THEN
+        RAISE EXCEPTION 'Subject % does not exist', p_subject
+        USING ERRCODE = '22003';
+    END IF;
+    p_weekday := NULLIF(trim(p_weekday), '');
 
     IF p_weekday IS NOT NULL AND
        p_weekday NOT IN ('Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П’ятниця') THEN
@@ -32,7 +39,8 @@ BEGIN
 
     UPDATE days
     SET
-        day_name    = COALESCE(p_name, day_name),
+        day_timetable    = COALESCE(p_timetable, day_timetable),
+		day_subject		= COALESCE(p_subject, day_subject),
         day_time    = COALESCE(p_time, day_time),
         day_weekday = COALESCE(p_weekday, day_weekday)
     WHERE day_id = p_id;

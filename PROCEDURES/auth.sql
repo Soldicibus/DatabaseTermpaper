@@ -1,15 +1,15 @@
 CREATE OR REPLACE PROCEDURE proc_register_user(
-    IN p_username VARCHAR(50),
-    IN p_email VARCHAR(60),
-    IN p_password TEXT
+    IN  p_username VARCHAR(50),
+    IN  p_email    VARCHAR(60),
+    IN  p_password TEXT,
+    OUT new_user_id INT
 )
 LANGUAGE plpgsql
 AS $$
-DECLARE
-    v_user_id INT;
 BEGIN
+    /* ---------- Normalize ---------- */
     p_username := NULLIF(trim(p_username), '');
-    p_email := NULLIF(trim(p_email), '');
+    p_email    := NULLIF(trim(p_email), '');
     p_password := NULLIF(trim(p_password), '');
 
     IF p_username IS NULL THEN
@@ -37,13 +37,20 @@ BEGIN
         USING ERRCODE = '23505';
     END IF;
 
+    /* ---------- Hash password ---------- */
     p_password := crypt(p_password, gen_salt('bf'));
 
-    CALL proc_create_user(p_username::character varying, p_email::character varying, p_password::character varying, v_user_id::integer);
+    /* ---------- PASS OUT PARAM DIRECTLY ---------- */
+    CALL proc_create_user(
+        p_username,
+        p_email,
+        p_password,
+        new_user_id
+    );
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION proc_login_user(
+CREATE OR REPLACE FUNCTION login_user(
     p_login TEXT,   -- username OR email
     p_password TEXT
 )

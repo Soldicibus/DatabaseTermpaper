@@ -11,7 +11,7 @@ LANGUAGE plpgsql
 AS $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM students WHERE sudent_id = p_id
+        SELECT 1 FROM students WHERE student_id = p_id
     ) THEN
         RAISE EXCEPTION 'Student % does not exist', p_id
         USING ERRCODE = '22003';
@@ -44,6 +44,6 @@ BEGIN
         student_phone      = COALESCE(p_phone, student_phone),
         student_user_id    = COALESCE(p_user_id, student_user_id),
         student_class      = COALESCE(p_class, student_class)
-    WHERE sudent_id = p_id;
+    WHERE student_id = p_id;
 END;
 $$;
