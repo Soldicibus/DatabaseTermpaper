@@ -1,6 +1,8 @@
 CREATE OR REPLACE FUNCTION trg_unique_user_fields()
 RETURNS trigger
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 	BEGIN
 	    IF EXISTS (

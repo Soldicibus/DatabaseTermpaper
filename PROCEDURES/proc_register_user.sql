@@ -5,6 +5,8 @@ CREATE OR REPLACE PROCEDURE proc_register_user(
     OUT new_user_id INT
 )
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 BEGIN
     /* ---------- Normalize ---------- */
@@ -27,12 +29,12 @@ BEGIN
         USING ERRCODE = '23514';
     END IF;
 
-    IF EXISTS (SELECT 1 FROM users WHERE username = p_username) THEN
+    IF EXISTS (SELECT 1 FROM vws_users WHERE username = p_username) THEN
         RAISE EXCEPTION 'Username % already exists', p_username
         USING ERRCODE = '23505';
     END IF;
 
-    IF EXISTS (SELECT 1 FROM users WHERE email = p_email) THEN
+    IF EXISTS (SELECT 1 FROM vws_users WHERE email = p_email) THEN
         RAISE EXCEPTION 'Email % already exists', p_email
         USING ERRCODE = '23505';
     END IF;

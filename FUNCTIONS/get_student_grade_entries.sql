@@ -12,6 +12,8 @@ RETURNS TABLE (
     status TEXT
 )
 LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
     SELECT
 	l.lesson_id,

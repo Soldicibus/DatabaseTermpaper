@@ -4,6 +4,8 @@ CREATE OR REPLACE FUNCTION homework_by_date_subject(
 )
 RETURNS TABLE(homework TEXT)
 LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 	SELECT h.homework_desc
 	FROM Homework h

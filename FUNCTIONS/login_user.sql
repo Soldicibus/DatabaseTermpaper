@@ -8,6 +8,8 @@ RETURNS TABLE (
     email VARCHAR
 )
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 BEGIN
     RETURN QUERY

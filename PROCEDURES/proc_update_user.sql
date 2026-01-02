@@ -5,10 +5,12 @@ CREATE OR REPLACE PROCEDURE proc_update_user(
     IN p_password varchar(50) DEFAULT NULL
 )
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM users WHERE user_id = p_id
+        SELECT 1 FROM vws_users WHERE user_id = p_id
     ) THEN
         RAISE EXCEPTION 'User % does not exist', p_id
         USING ERRCODE = 'P0002';
@@ -19,14 +21,14 @@ BEGIN
     p_password := NULLIF(trim(p_password), '');
 
     IF p_username IS NOT NULL AND EXISTS (
-        SELECT 1 FROM users WHERE username = p_username AND user_id <> p_id
+        SELECT 1 FROM vws_users WHERE username = p_username AND user_id <> p_id
     ) THEN
         RAISE EXCEPTION 'Username % already exists', p_username
         USING ERRCODE = '23505';
     END IF;
 
     IF p_email IS NOT NULL AND EXISTS (
-        SELECT 1 FROM users WHERE email = p_email AND user_id <> p_id
+        SELECT 1 FROM vws_users WHERE email = p_email AND user_id <> p_id
     ) THEN
         RAISE EXCEPTION 'Email % already exists', p_email
         USING ERRCODE = '23505';
@@ -42,5 +44,8 @@ BEGIN
         email    = COALESCE(p_email, email),
         password = COALESCE(p_password, password)
     WHERE user_id = p_id;
+
+    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
+    VALUES ('Users', 'UPDATE', p_id::text, SESSION_USER, 'Updated user');
 END;
 $$;

@@ -2,13 +2,18 @@ CREATE OR REPLACE PROCEDURE proc_delete_material(
     IN p_id integer
 )
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM material WHERE material_id = p_id) THEN
+    IF NOT EXISTS (SELECT 1 FROM vws_materials WHERE material_id = p_id) THEN
         RAISE EXCEPTION 'Material % does not exist', p_id
         USING ERRCODE = '22003';
     END IF;
 
     DELETE FROM material WHERE material_id = p_id;
+
+    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
+    VALUES ('Material', 'DELETE', p_id::text, SESSION_USER, 'Deleted material');
 END;
 $$;

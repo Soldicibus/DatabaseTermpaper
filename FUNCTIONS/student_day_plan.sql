@@ -4,6 +4,8 @@ CREATE OR REPLACE FUNCTION student_day_plan(
 )
 RETURNS TABLE(lesson VARCHAR, mark SMALLINT, homework TEXT)
 LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 	SELECT l.lesson_name, sd.mark, h.homework_desc
 	FROM Students s

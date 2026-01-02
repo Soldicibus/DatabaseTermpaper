@@ -8,6 +8,8 @@ CREATE OR REPLACE PROCEDURE proc_create_parent(
     OUT generated_password TEXT
 )
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 DECLARE
     v_user_id INT;
@@ -31,7 +33,7 @@ BEGIN
 
     /* ---------- If user is provided, validate ---------- */
     IF p_user_id IS NOT NULL THEN
-        IF NOT EXISTS (SELECT 1 FROM users WHERE user_id = p_user_id) THEN
+        IF NOT EXISTS (SELECT 1 FROM vws_users WHERE user_id = p_user_id) THEN
             RAISE EXCEPTION 'User % does not exist', p_user_id
             USING ERRCODE = '22003';
         END IF;
@@ -74,7 +76,7 @@ BEGIN
         /* ---------- Assign parent role ---------- */
         SELECT role_id
         INTO v_parent_role_id
-        FROM roles
+        FROM vws_roles
         WHERE role_name = 'Parent';
 
         IF v_parent_role_id IS NULL THEN
@@ -101,6 +103,9 @@ BEGIN
         p_phone,
         v_user_id
     )
-    RETURNING parent_id INTO new_parent_id;
+    RETURNING parent_id INTO new_parent_id;changed_by, details)
+    VALUES ('Parents', 'INSERT', new_parent_id::text, SESSION_USER
+    INSERT INTO AuditLog (table_name, operation, record_id, details)
+    VALUES ('Parents', 'INSERT', new_parent_id::text, 'Created parent');
 END;
 $$;

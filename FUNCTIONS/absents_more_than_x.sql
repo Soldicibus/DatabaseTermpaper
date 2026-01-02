@@ -4,6 +4,8 @@ CREATE OR REPLACE FUNCTION absents_more_than_x(
 )
 RETURNS TABLE(student_id INT, student_name VARCHAR, student_surname VARCHAR, absents INT)
 LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 	SELECT s.student_id, s.student_name, s.student_surname, COUNT(*)
 	FROM Students s

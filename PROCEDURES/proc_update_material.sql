@@ -5,10 +5,12 @@ CREATE OR REPLACE PROCEDURE proc_update_material(
     IN p_link text
 )
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 BEGIN
     IF NOT EXISTS (
-		SELECT 1 FROM material WHERE material_id = p_id
+		SELECT 1 FROM vws_materials WHERE material_id = p_id
     ) THEN
         RAISE EXCEPTION 'Material % does not exist', p_id
         USING ERRCODE = '22003';
@@ -29,6 +31,9 @@ BEGIN
 		material_desc	= COALESCE(p_desc, material_desc),
 		material_link	= COALESCE(p_link, material_link)
 	WHERE material_id = p_id;
+
+    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
+    VALUES ('Material', 'UPDATE', p_id::text, SESSION_USER, 'Updated material');
 END;
 $$;
 

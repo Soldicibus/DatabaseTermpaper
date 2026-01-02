@@ -8,10 +8,12 @@ CREATE OR REPLACE PROCEDURE proc_update_student(
     IN p_class varchar(10)
 )
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM students WHERE student_id = p_id
+        SELECT 1 FROM vws_students WHERE student_id = p_id
     ) THEN
         RAISE EXCEPTION 'Student % does not exist', p_id
         USING ERRCODE = '22003';
@@ -23,14 +25,14 @@ BEGIN
     p_phone := NULLIF(trim(p_phone), '');
 
     IF p_class IS NOT NULL AND NOT EXISTS (
-        SELECT 1 FROM class WHERE class_name = p_class
+        SELECT 1 FROM vws_classes WHERE class_name = p_class
     ) THEN
         RAISE EXCEPTION 'Class % does not exist', p_class
         USING ERRCODE = '22003';
     END IF;
 
     IF p_user_id IS NOT NULL AND NOT EXISTS (
-        SELECT 1 FROM users WHERE user_id = p_user_id
+        SELECT 1 FROM vws_users WHERE user_id = p_user_id
     ) THEN
         RAISE EXCEPTION 'User % does not exist', p_user_id
         USING ERRCODE = '22003';
@@ -45,5 +47,8 @@ BEGIN
         student_user_id    = COALESCE(p_user_id, student_user_id),
         student_class      = COALESCE(p_class, student_class)
     WHERE student_id = p_id;
+
+    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
+    VALUES ('Students', 'UPDATE', p_id::text, SESSION_USER, 'Updated student');
 END;
 $$;

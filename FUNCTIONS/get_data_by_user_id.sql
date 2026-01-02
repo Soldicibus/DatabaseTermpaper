@@ -11,6 +11,8 @@ RETURNS TABLE (
     phone VARCHAR
 )
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 BEGIN
     IF EXISTS (

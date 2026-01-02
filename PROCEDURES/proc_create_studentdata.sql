@@ -8,24 +8,26 @@ CREATE OR REPLACE PROCEDURE proc_create_studentdata(
     OUT new_data_id integer
 )
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM journal WHERE journal_id = p_journal_id
+        SELECT 1 FROM vws_journals WHERE journal_id = p_journal_id
     ) THEN
         RAISE EXCEPTION 'Journal % does not exist', p_journal_id
         USING ERRCODE = '23503';
     END IF;
 
     IF NOT EXISTS (
-        SELECT 1 FROM students WHERE student_id = p_student_id
+        SELECT 1 FROM vws_students WHERE student_id = p_student_id
     ) THEN
         RAISE EXCEPTION 'Student % does not exist', p_student_id
         USING ERRCODE = '23503';
     END IF;
 
     IF NOT EXISTS (
-        SELECT 1 FROM lessons WHERE lesson_id = p_lesson
+        SELECT 1 FROM vws_lessons WHERE lesson_id = p_lesson
     ) THEN
         RAISE EXCEPTION 'Lesson % does not exist', p_lesson
         USING ERRCODE = '23503';
@@ -55,5 +57,8 @@ BEGIN
         p_note
     )
     RETURNING data_id INTO new_data_id;
+
+    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
+    VALUES ('StudentData', 'INSERT', new_data_id::text, SESSION_USER, 'Created student data');
 END;
 $$;

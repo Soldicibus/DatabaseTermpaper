@@ -1,47 +1,42 @@
-CREATE OR REPLACE PROCEDURE proc_create_day(
+CREATE OR REPLACE PROCEDURE proc_create_lesson(
+    IN p_name varchar(50),
+    IN p_class varchar(10),
     IN p_subject integer,
-	IN p_timetable integer,
-    IN p_day_time time,
-    IN p_day_weekday varchar(20),
-    OUT new_day_id integer
+    IN p_material integer,
+    IN p_teacher integer,
+    IN p_date date,
+    OUT new_lesson_id integer
 )
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
-DECLARE
-    v_day_name varchar(255);
 BEGIN
-    v_day_name := NULLIF(trim(p_day_name), '');
-    IF v_day_name IS NULL THEN
-        RAISE EXCEPTION 'Day name cannot be empty'
-        USING ERRCODE = '23514';
-    END IF;
-	
-	IF NOT EXISTS (
-        SELECT 1 FROM timetable WHERE timetable_id = p_timtable
-    ) THEN
-        RAISE EXCEPTION 'Timetable % does not exist', p_timetable
+    IF NOT EXISTS (SELECT 1 FROM vws_classes WHERE class_name = p_class) THEN
+        RAISE EXCEPTION 'Class % does not exist', p_class
         USING ERRCODE = '22003';
     END IF;
 
-	IF NOT EXISTS (
-        SELECT 1 FROM subjects WHERE subject_id = p_subject
-    ) THEN
+    IF NOT EXISTS (SELECT 1 FROM vws_subjects WHERE subject_id = p_subject) THEN
         RAISE EXCEPTION 'Subject % does not exist', p_subject
         USING ERRCODE = '22003';
     END IF;
-	
-    IF p_day_time IS NULL THEN
-        RAISE EXCEPTION 'Day time cannot be NULL'
-        USING ERRCODE = '23502';
+
+    IF p_material IS NOT NULL AND NOT EXISTS (SELECT 1 FROM vws_materials WHERE material_id = p_material) THEN
+        RAISE EXCEPTION 'Material % does not exist', p_material
+        USING ERRCODE = '22003';
     END IF;
 
-    IF NOT p_day_weekday IN ('Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П''ятниця') THEN
-        RAISE EXCEPTION 'Invalid weekday: %', p_day_weekday
-        USING ERRCODE = '23514';
+    IF NOT EXISTS (SELECT 1 FROM vws_teachers WHERE teacher_id = p_teacher) THEN
+        RAISE EXCEPTION 'Teacher % does not exist', p_teacher
+        USING ERRCODE = '22003';
     END IF;
 
-    INSERT INTO Days(day_name, day_time, day_weekday)
-    VALUES (v_day_name, p_day_time, p_day_weekday)
-    RETURNING day_id INTO new_day_id;
+    INSERT INTO Lessons(lesson_name, lesson_class, lesson_subject, lesson_material, lesson_teacher, lesson_date)
+    VALUES (p_name, p_class, p_subject, p_material, p_teacher, COALESCE(p_date, CURRENT_DATE))
+    RETURNING lesson_id INTO new_lesson_id;
+
+    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
+    VALUES ('Lessons', 'INSERT', new_lesson_id::text, SESSION_USER, 'Created lesson');
 END;
 $$;

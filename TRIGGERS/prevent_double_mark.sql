@@ -1,6 +1,8 @@
 CREATE OR REPLACE FUNCTION trg_prevent_fast_double_mark()
 RETURNS trigger
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 BEGIN
     IF EXISTS (

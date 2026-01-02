@@ -3,10 +3,12 @@ CREATE OR REPLACE PROCEDURE proc_reset_user_password(
     IN p_new_password varchar(50)
 )
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM users WHERE user_id = p_user_id
+        SELECT 1 FROM vws_users WHERE user_id = p_user_id
     ) THEN
         RAISE EXCEPTION 'User % does not exist', p_user_id
         USING ERRCODE = '22003';
@@ -22,5 +24,8 @@ BEGIN
     UPDATE users
     SET password = p_new_password
     WHERE user_id = p_user_id;
+
+    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
+    VALUES ('Users', 'UPDATE', p_user_id::text, SESSION_USER, 'Reset user password');
 END;
 $$;

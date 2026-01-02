@@ -9,6 +9,8 @@ RETURNS TABLE(
     attendance NUMERIC(5,2)
 )
 LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
     SELECT
         s.student_name,

@@ -6,17 +6,19 @@ CREATE OR REPLACE PROCEDURE proc_create_day(
     OUT new_day_id integer
 )
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM timetable WHERE timetable_id = p_timetable
+        SELECT 1 FROM vws_timetables WHERE timetable_id = p_timetable
     ) THEN
         RAISE EXCEPTION 'Timetable % does not exist', p_timetable
         USING ERRCODE = '22003';
     END IF;
 
     IF NOT EXISTS (
-        SELECT 1 FROM subjects WHERE subject_id = p_subject
+        SELECT 1 FROM vws_subjects WHERE subject_id = p_subject
     ) THEN
         RAISE EXCEPTION 'Subject % does not exist', p_subject
         USING ERRCODE = '22003';
@@ -35,5 +37,8 @@ BEGIN
     INSERT INTO Days(day_subject, day_timetable, day_time, day_weekday)
     VALUES (p_subject, p_timetable, p_day_time, p_day_weekday)
     RETURNING day_id INTO new_day_id;
+
+    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
+    VALUES ('Days', 'INSERT', new_day_id::text, SESSION_USER, 'Created day');
 END;
 $$;

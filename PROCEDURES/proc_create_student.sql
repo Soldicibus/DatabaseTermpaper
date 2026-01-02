@@ -9,6 +9,8 @@ CREATE OR REPLACE PROCEDURE proc_create_student(
     OUT generated_password TEXT
 )
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 DECLARE
     v_user_id INT;
@@ -31,7 +33,7 @@ BEGIN
     END IF;
 
 	IF NOT EXISTS (
-        SELECT 1 FROM class WHERE class_name = p_class
+        SELECT 1 FROM vws_classes WHERE class_name = p_class
     ) THEN
         RAISE EXCEPTION 'Class % does not exist', p_class
         USING ERRCODE = '22003';
@@ -39,7 +41,7 @@ BEGIN
 
     /* ---------- If user is provided, validate ---------- */
     IF p_user_id IS NOT NULL THEN
-        IF NOT EXISTS (SELECT 1 FROM users WHERE user_id = p_user_id) THEN
+        IF NOT EXISTS (SELECT 1 FROM vws_users WHERE user_id = p_user_id) THEN
             RAISE EXCEPTION 'User % does not exist', p_user_id
             USING ERRCODE = '22003';
         END IF;
@@ -82,7 +84,7 @@ BEGIN
         /* ---------- Assign student role ---------- */
         SELECT role_id
         INTO v_student_role_id
-        FROM roles
+        FROM vws_roles
         WHERE role_name = 'Student';
 
         IF v_student_role_id IS NULL THEN
@@ -111,6 +113,9 @@ BEGIN
         v_user_id,
 		p_class
     )
-    RETURNING student_id INTO new_student_id;
+    RETURNING student_id INTO new_student_id;changed_by, details)
+    VALUES ('Students', 'INSERT', new_student_id::text, SESSION_USER
+    INSERT INTO AuditLog (table_name, operation, record_id, details)
+    VALUES ('Students', 'INSERT', new_student_id::text, 'Created student');
 END;
 $$;

@@ -9,6 +9,8 @@ RETURNS TABLE (
     present_percent NUMERIC(5,2)
 )
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 DECLARE
     total INT;

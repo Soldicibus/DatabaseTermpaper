@@ -1,6 +1,8 @@
 CREATE OR REPLACE FUNCTION trg_check_timetable_conflict()
 RETURNS trigger
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 	BEGIN
 	    IF EXISTS (

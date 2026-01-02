@@ -7,6 +7,8 @@ CREATE OR REPLACE PROCEDURE proc_create_teacher(
     OUT new_teacher_id integer
 )
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 BEGIN
     p_name := NULLIF(trim(p_name), '');
@@ -20,7 +22,7 @@ BEGIN
     END IF;
 
     IF p_user_id IS NOT NULL AND NOT EXISTS (
-        SELECT 1 FROM users WHERE user_id = p_user_id
+        SELECT 1 FROM vws_users WHERE user_id = p_user_id
     ) THEN
         RAISE EXCEPTION 'User % does not exist', p_user_id
         USING ERRCODE = '22003';
@@ -41,5 +43,8 @@ BEGIN
         p_user_id
     )
     RETURNING teacher_id INTO new_teacher_id;
+
+    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
+    VALUES ('Teacher', 'INSERT', new_teacher_id::text, SESSION_USER, 'Created teacher');
 END;
 $$;
