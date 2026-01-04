@@ -1,0 +1,23 @@
+CREATE OR REPLACE PROCEDURE proc_update_role(
+    IN p_role_id INT,
+    IN p_role_name VARCHAR(10),
+    IN p_role_desc TEXT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM Roles WHERE role_id = p_role_id) THEN
+        RAISE EXCEPTION 'Role with ID % does not exist', p_role_id;
+    END IF;
+
+    UPDATE Roles
+    SET role_name = COALESCE(p_role_name, role_name),
+        role_desc = COALESCE(p_role_desc, role_desc)
+    WHERE role_id = p_role_id;
+
+    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
+    VALUES ('Roles', 'UPDATE', p_role_id::TEXT, SESSION_USER, 'Updated role ' || p_role_id);
+END;
+$$;

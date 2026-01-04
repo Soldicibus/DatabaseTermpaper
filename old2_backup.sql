@@ -2,10 +2,10 @@
 -- PostgreSQL database dump
 --
 
-\restrict eDBkr7AlbFMRERc7feaZBTTNemsFqvrqUuZbVcFAvh92c2tY0Jye6fFsyBaWRUu
+\restrict lSYv2Aaji44Vt9g3fdxxKwafV8wgtHDcjzNCbCO2QKlYfOdQe9h0n7z1olRCvQe
 
--- Dumped from database version 18.1
--- Dumped by pg_dump version 18.1
+-- Dumped from database version 17.6
+-- Dumped by pg_dump version 17.6
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -65,11 +65,10 @@ ALTER TYPE public.journal_status_enum OWNER TO postgres;
 -- Name: absents_more_than_x(character varying, integer); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE FUNCTION public.absents_more_than_x(p_class character varying, p_x integer) RETURNS TABLE(student_id integer, student_name character varying, student_surname character varying, absents integer)
-    LANGUAGE sql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+CREATE FUNCTION public.absents_more_than_x(p_class character varying, p_x integer) RETURNS TABLE(student_id integer, absents integer)
+    LANGUAGE sql
     AS $$
-	SELECT s.student_id, s.student_name, s.student_surname, COUNT(*)
+	SELECT s.student_id, COUNT(*)
 	FROM Students s
 	JOIN StudentData sd ON s.student_id = sd.student_id
 	WHERE s.student_class = p_class
@@ -82,84 +81,19 @@ $$;
 ALTER FUNCTION public.absents_more_than_x(p_class character varying, p_x integer) OWNER TO postgres;
 
 --
--- Name: calculate_student_status(); Type: FUNCTION; Schema: public; Owner: postgres
---
-
-CREATE FUNCTION public.calculate_student_status() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-    v_avg_grade NUMERIC(4,2);
-    v_attendance_pct NUMERIC(5,2);
-    v_new_status VARCHAR(20);
-    v_student_id INT;
-BEGIN
-    -- Determine student_id (works for INSERT/UPDATE on StudentData)
-    v_student_id := NEW.student_id;
-
-    -- 1. Calculate Average Grade (ignoring NULLs)
-    SELECT AVG(mark) INTO v_avg_grade
-    FROM StudentData
-    WHERE student_id = v_student_id AND mark IS NOT NULL;
-
-    -- 2. Calculate Attendance Percentage
-    -- Counts 'Присутній'/'П' as present, everything else as absent/total
-    SELECT 
-        CASE WHEN COUNT(*) = 0 THEN 0 
-        ELSE (COUNT(*) FILTER (WHERE status IN ('Присутній', 'П'))::NUMERIC / COUNT(*)) * 100 
-        END INTO v_attendance_pct
-    FROM StudentData
-    WHERE student_id = v_student_id;
-
-    -- 3. Determine Status Logic (Complex Business Logic)
-    IF v_avg_grade >= 10 AND v_attendance_pct >= 90 THEN
-        v_new_status := 'Excellent'; -- Відмінник
-    ELSIF v_avg_grade >= 7 AND v_attendance_pct >= 75 THEN
-        v_new_status := 'Good'; -- Хорошист
-    ELSIF v_avg_grade < 4 OR v_attendance_pct < 50 THEN
-        v_new_status := 'At Risk'; -- В зоні ризику
-    ELSE
-        v_new_status := 'Regular'; -- Звичайний
-    END IF;
-
-    -- 4. Update Student Table
-    -- Only update if the status has actually changed to avoid unnecessary writes
-    UPDATE Students
-    SET academic_status = v_new_status
-    WHERE student_id = v_student_id
-    AND (academic_status IS DISTINCT FROM v_new_status);
-
-    RETURN NEW;
-END;
-$$;
-
-
-ALTER FUNCTION public.calculate_student_status() OWNER TO postgres;
-
---
 -- Name: get_children_by_parent(integer); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE FUNCTION public.get_children_by_parent(p_parent_id integer) RETURNS TABLE(student_name character varying, student_surname character varying, student_class character varying, avg_grade numeric, attendance numeric)
-    LANGUAGE sql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+CREATE FUNCTION public.get_children_by_parent(p_parent_id integer) RETURNS TABLE(student_id integer, student_name character varying, student_surname character varying, student_class character varying)
+    LANGUAGE sql
     AS $$
     SELECT
+		s.student_id,
         s.student_name,
         s.student_surname,
-        s.student_class,
-
-        ROUND(AVG(j.mark)::NUMERIC, 2) AS avg_grade,
-
-        ROUND(
-            100.0 * COUNT(*) FILTER (WHERE j.status = 'Присутній' OR j.status = 'П')
-            / NULLIF(COUNT(*), 0),
-            2
-        ) AS attendance
-
+        s.student_class
     FROM StudentParent sp
     JOIN Students s ON sp.student_id_ref = s.student_id
-    LEFT JOIN StudentData j ON j.student_id = s.student_id
 
     WHERE sp.parent_id_ref = p_parent_id
 
@@ -174,8 +108,7 @@ ALTER FUNCTION public.get_children_by_parent(p_parent_id integer) OWNER TO postg
 --
 
 CREATE FUNCTION public.get_data_by_user_id(p_user_id integer) RETURNS TABLE(role text, entity_id integer, name character varying, surname character varying, patronym character varying, email character varying, phone character varying)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE plpgsql
     AS $$
 BEGIN
     IF EXISTS (
@@ -235,10 +168,10 @@ $$;
 ALTER FUNCTION public.get_data_by_user_id(p_user_id integer) OWNER TO postgres;
 
 --
--- Name: get_homework_by_createdate(character varying, date); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: get_homework_by_date(character varying, date); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE FUNCTION public.get_homework_by_createdate(p_class character varying, p_date date) RETURNS TABLE(homework_name character varying, teacher_name character varying, teacher_surname character varying, lesson_name character varying, homework_duedate date, homework_created_at date, homework_desc text)
+CREATE FUNCTION public.get_homework_by_date(p_class character varying, p_date date) RETURNS TABLE(homework_name character varying, teacher_name character varying, teacher_surname character varying, lesson_name character varying, homework_duedate date, homework_created_at date, homework_desc text)
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -261,15 +194,14 @@ END;
 $$;
 
 
-ALTER FUNCTION public.get_homework_by_createdate(p_class character varying, p_date date) OWNER TO postgres;
+ALTER FUNCTION public.get_homework_by_date(p_class character varying, p_date date) OWNER TO postgres;
 
 --
 -- Name: get_homework_by_date_class(character varying, date); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
 CREATE FUNCTION public.get_homework_by_date_class(p_class character varying, p_date date) RETURNS TABLE(name character varying, description text)
-    LANGUAGE sql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE sql
     AS $$
 	SELECT homework_name, homework_desc
 	FROM Homework
@@ -281,46 +213,18 @@ $$;
 ALTER FUNCTION public.get_homework_by_date_class(p_class character varying, p_date date) OWNER TO postgres;
 
 --
--- Name: get_homework_by_duedate(character varying, date); Type: FUNCTION; Schema: public; Owner: postgres
---
-
-CREATE FUNCTION public.get_homework_by_duedate(p_class character varying, p_date date) RETURNS TABLE(homework_name character varying, teacher_name character varying, teacher_surname character varying, lesson_name character varying, homework_duedate date, homework_created_at date, homework_desc text)
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    RETURN QUERY
-    SELECT 
-        h.homework_name,
-        t.teacher_name,
-        t.teacher_surname,
-        l.lesson_name,
-        h.homework_duedate,
-		h.homework_created_at,
-        h.homework_desc
-    FROM Homework h
-	JOIN Lessons l ON h.homework_lesson = l.lesson_id
-    JOIN Teacher t ON h.homework_teacher = t.teacher_id
-	WHERE homework_class = p_class
-	AND homework_duedate = p_date;
-END;
-$$;
-
-
-ALTER FUNCTION public.get_homework_by_duedate(p_class character varying, p_date date) OWNER TO postgres;
-
---
 -- Name: get_student_grade_entries(integer, date, date); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE FUNCTION public.get_student_grade_entries(p_student_id integer, p_start_date date DEFAULT ((CURRENT_DATE - '2 days'::interval))::date, p_end_date date DEFAULT ((CURRENT_DATE + '7 days'::interval))::date) RETURNS TABLE(lesson_id integer, lesson_date date, subject_name text, data_id integer, mark smallint, status text)
-    LANGUAGE sql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+CREATE FUNCTION public.get_student_grade_entries(p_student_id integer, p_start_date date DEFAULT ((CURRENT_DATE - '2 days'::interval))::date, p_end_date date DEFAULT ((CURRENT_DATE + '7 days'::interval))::date) RETURNS TABLE(lesson_id integer, lesson_date date, subject_name text, data_id integer, journal_id integer, mark smallint, status text)
+    LANGUAGE sql
     AS $$
     SELECT
 	l.lesson_id,
         l.lesson_date,
         s.subject_name,
-	sd.data_id,
+		sd.data_id,
+		sd.journal_id,
         sd.mark,
         sd.status
     FROM StudentData sd
@@ -339,14 +243,14 @@ ALTER FUNCTION public.get_student_grade_entries(p_student_id integer, p_start_da
 -- Name: get_student_marks(integer, date, date); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE FUNCTION public.get_student_marks(p_student_id integer, p_from date DEFAULT (CURRENT_DATE - '1 mon'::interval), p_to date DEFAULT CURRENT_DATE) RETURNS TABLE(mark smallint, lesson_date date)
-    LANGUAGE sql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+CREATE FUNCTION public.get_student_marks(p_student_id integer, p_from date DEFAULT (CURRENT_DATE - '1 mon'::interval), p_to date DEFAULT CURRENT_DATE) RETURNS TABLE(subject character varying, mark smallint, lesson_date date)
+    LANGUAGE sql
     AS $$
-	SELECT sd.mark, l.lesson_date
+	SELECT s.subject_name, sd.mark, l.lesson_date
 	FROM StudentData sd
 	JOIN Journal j ON sd.journal_id = j.journal_id
 	JOIN Lessons l ON j.journal_teacher = l.lesson_teacher
+	JOIN Subjects s ON l.lesson_subject = s.subject_id
 	WHERE sd.mark IS NOT NULL
 	AND sd.student_id = p_student_id
 	  AND l.lesson_date BETWEEN p_from AND p_to;
@@ -360,8 +264,7 @@ ALTER FUNCTION public.get_student_marks(p_student_id integer, p_from date, p_to 
 --
 
 CREATE FUNCTION public.get_teacher_salary(p_teacher_id integer, p_from date DEFAULT (CURRENT_DATE - '1 mon'::interval), p_to date DEFAULT CURRENT_DATE) RETURNS numeric
-    LANGUAGE sql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE sql
     AS $$
 SELECT COUNT(*) * 550
 	FROM Lessons
@@ -395,8 +298,7 @@ ALTER FUNCTION public.get_timetable_id_by_student_id(p_student_id integer) OWNER
 --
 
 CREATE FUNCTION public.get_user_role(p_user_id integer) RETURNS TABLE(role_name character varying)
-    LANGUAGE sql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE sql
     AS $$
 	SELECT r.role_name
 	FROM UserRole ur
@@ -412,8 +314,7 @@ ALTER FUNCTION public.get_user_role(p_user_id integer) OWNER TO postgres;
 --
 
 CREATE FUNCTION public.homework_by_date_subject(p_date date, p_subject integer DEFAULT NULL::integer) RETURNS TABLE(homework text)
-    LANGUAGE sql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE sql
     AS $$
 	SELECT h.homework_desc
 	FROM Homework h
@@ -430,8 +331,7 @@ ALTER FUNCTION public.homework_by_date_subject(p_date date, p_subject integer) O
 --
 
 CREATE FUNCTION public.login_user(p_login text, p_password text) RETURNS TABLE(user_id integer, username character varying, email character varying)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE plpgsql
     AS $$
 BEGIN
     RETURN QUERY
@@ -459,26 +359,25 @@ ALTER FUNCTION public.login_user(p_login text, p_password text) OWNER TO postgre
 --
 
 CREATE PROCEDURE public.proc_assign_role_to_user(IN p_user_id integer, IN p_role_id integer)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE plpgsql
     AS $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM vws_users WHERE user_id = p_user_id
+        SELECT 1 FROM users WHERE user_id = p_user_id
     ) THEN
         RAISE EXCEPTION 'User % does not exist', p_user_id
         USING ERRCODE = '22003';
     END IF;
 
     IF NOT EXISTS (
-        SELECT 1 FROM vws_roles WHERE role_id = p_role_id
+        SELECT 1 FROM roles WHERE role_id = p_role_id
     ) THEN
         RAISE EXCEPTION 'Role % does not exist', p_role_id
         USING ERRCODE = '22003';
     END IF;
 
     IF EXISTS (
-        SELECT 1 FROM vws_user_roles
+        SELECT 1 FROM userrole
         WHERE user_id = p_user_id AND role_id = p_role_id
     ) THEN
         RAISE EXCEPTION 'User % already has role %', p_user_id, p_role_id
@@ -487,9 +386,6 @@ BEGIN
 
     INSERT INTO userrole (user_id, role_id)
     VALUES (p_user_id, p_role_id);
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('UserRole', 'INSERT', p_user_id || ',' || p_role_id, SESSION_USER, 'Assigned role to user');
 END;
 $$;
 
@@ -501,22 +397,21 @@ ALTER PROCEDURE public.proc_assign_role_to_user(IN p_user_id integer, IN p_role_
 --
 
 CREATE PROCEDURE public.proc_assign_student_parent(IN p_student_id integer, IN p_parent_id integer)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE plpgsql
     AS $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM vws_students WHERE student_id = p_student_id) THEN
+    IF NOT EXISTS (SELECT 1 FROM students WHERE student_id = p_student_id) THEN
         RAISE EXCEPTION 'Student % does not exist', p_student_id
         USING ERRCODE = '22003';
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM vws_parents WHERE parent_id = p_parent_id) THEN
+    IF NOT EXISTS (SELECT 1 FROM parents WHERE parent_id = p_parent_id) THEN
         RAISE EXCEPTION 'Parent % does not exist', p_parent_id
         USING ERRCODE = '22003';
     END IF;
 
     IF EXISTS (
-        SELECT 1 FROM vws_student_parents
+        SELECT 1 FROM studentparent
         WHERE student_id_ref = p_student_id AND parent_id_ref = p_parent_id
     ) THEN
         RAISE EXCEPTION 'This student is already assigned to this parent'
@@ -525,9 +420,6 @@ BEGIN
 
     INSERT INTO studentparent(student_id_ref, parent_id_ref)
     VALUES (p_student_id, p_parent_id);
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('StudentParent', 'INSERT', p_student_id || ',' || p_parent_id, SESSION_USER, 'Assigned student to parent');
 END;
 $$;
 
@@ -617,43 +509,22 @@ $$;
 ALTER PROCEDURE public.proc_assign_user_to_entity(IN p_user_id integer, IN p_entity_type text, IN p_entity_id integer) OWNER TO postgres;
 
 --
--- Name: proc_create_class(character varying, integer, integer); Type: PROCEDURE; Schema: public; Owner: postgres
---
-
-CREATE PROCEDURE public.proc_create_class(IN p_class_name character varying, IN p_class_journal_id integer, IN p_class_mainteacher integer)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
-    AS $$
-BEGIN
-    INSERT INTO Class (class_name, class_journal_id, class_mainTeacher)
-    VALUES (p_class_name, p_class_journal_id, p_class_mainTeacher);
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Class', 'INSERT', p_class_name, SESSION_USER, 'Created class ' || p_class_name);
-END;
-$$;
-
-
-ALTER PROCEDURE public.proc_create_class(IN p_class_name character varying, IN p_class_journal_id integer, IN p_class_mainteacher integer) OWNER TO postgres;
-
---
 -- Name: proc_create_day(integer, integer, time without time zone, character varying); Type: PROCEDURE; Schema: public; Owner: postgres
 --
 
 CREATE PROCEDURE public.proc_create_day(IN p_subject integer, IN p_timetable integer, IN p_day_time time without time zone, IN p_day_weekday character varying, OUT new_day_id integer)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE plpgsql
     AS $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM vws_timetables WHERE timetable_id = p_timetable
+        SELECT 1 FROM timetable WHERE timetable_id = p_timetable
     ) THEN
         RAISE EXCEPTION 'Timetable % does not exist', p_timetable
         USING ERRCODE = '22003';
     END IF;
 
     IF NOT EXISTS (
-        SELECT 1 FROM vws_subjects WHERE subject_id = p_subject
+        SELECT 1 FROM subjects WHERE subject_id = p_subject
     ) THEN
         RAISE EXCEPTION 'Subject % does not exist', p_subject
         USING ERRCODE = '22003';
@@ -672,9 +543,6 @@ BEGIN
     INSERT INTO Days(day_subject, day_timetable, day_time, day_weekday)
     VALUES (p_subject, p_timetable, p_day_time, p_day_weekday)
     RETURNING day_id INTO new_day_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Days', 'INSERT', new_day_id::text, SESSION_USER, 'Created day');
 END;
 $$;
 
@@ -686,8 +554,7 @@ ALTER PROCEDURE public.proc_create_day(IN p_subject integer, IN p_timetable inte
 --
 
 CREATE PROCEDURE public.proc_create_homework(INOUT p_name character varying, IN p_teacher integer, IN p_lesson integer, INOUT p_duedate date, INOUT p_desc text, IN p_class character varying, OUT new_homework_id integer)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE plpgsql
     AS $_$
 BEGIN
     p_name := NULLIF(trim(p_name), '');
@@ -699,21 +566,21 @@ BEGIN
     END IF;
 
     IF NOT EXISTS (
-        SELECT 1 FROM vws_teachers WHERE teacher_id = p_teacher
+        SELECT 1 FROM teacher WHERE teacher_id = p_teacher
     ) THEN
         RAISE EXCEPTION 'Teacher % does not exist', p_teacher
         USING ERRCODE = '23503';
     END IF;
 
     IF NOT EXISTS (
-        SELECT 1 FROM vws_lessons WHERE lesson_id = p_lesson
+        SELECT 1 FROM lessons WHERE lesson_id = p_lesson
     ) THEN
         RAISE EXCEPTION 'Lesson % does not exist', p_lesson
         USING ERRCODE = '23503';
     END IF;
 
     IF NOT EXISTS (
-        SELECT 1 FROM vws_classes WHERE class_name = p_class
+        SELECT 1 FROM class WHERE class_name = p_class
     ) THEN
         RAISE EXCEPTION 'Class % does not exist', p_class
         USING ERRCODE = '23503';
@@ -751,9 +618,6 @@ BEGIN
         p_class
     )
     RETURNING homework_id INTO new_homework_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Homework', 'INSERT', new_homework_id::text, SESSION_USER, 'Created homework');
 END;
 $_$;
 
@@ -761,73 +625,82 @@ $_$;
 ALTER PROCEDURE public.proc_create_homework(INOUT p_name character varying, IN p_teacher integer, IN p_lesson integer, INOUT p_duedate date, INOUT p_desc text, IN p_class character varying, OUT new_homework_id integer) OWNER TO postgres;
 
 --
--- Name: proc_create_journal(integer, character varying); Type: PROCEDURE; Schema: public; Owner: postgres
---
-
-CREATE PROCEDURE public.proc_create_journal(IN p_journal_teacher integer, IN p_journal_name character varying)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
-    AS $$
-BEGIN
-    INSERT INTO Journal (journal_teacher, journal_name)
-    VALUES (p_journal_teacher, p_journal_name);
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Journal', 'INSERT', p_journal_name, SESSION_USER, 'Created journal ' || p_journal_name);
-END;
-$$;
-
-
-ALTER PROCEDURE public.proc_create_journal(IN p_journal_teacher integer, IN p_journal_name character varying) OWNER TO postgres;
-
---
 -- Name: proc_create_lesson(character varying, character varying, integer, integer, integer, date); Type: PROCEDURE; Schema: public; Owner: postgres
 --
 
-CREATE PROCEDURE public.proc_create_lesson(IN p_name character varying, IN p_class character varying, IN p_subject integer, IN p_material integer, IN p_teacher integer, IN p_date date, OUT new_lesson_id integer)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
-    AS $$
+CREATE PROCEDURE public.proc_create_lesson(INOUT p_name character varying, IN p_class character varying, IN p_subject integer, INOUT p_material integer, IN p_teacher integer, INOUT p_date date, OUT new_lesson_id integer)
+    LANGUAGE plpgsql
+    AS $_$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM vws_classes WHERE class_name = p_class) THEN
-        RAISE EXCEPTION 'Class % does not exist', p_class
-        USING ERRCODE = '22003';
-    END IF;
+    p_name := NULLIF(trim(p_name), '');
+    p_material := CASE WHEN p_material = 0 THEN NULL ELSE p_material END;
 
-    IF NOT EXISTS (SELECT 1 FROM vws_subjects WHERE subject_id = p_subject) THEN
-        RAISE EXCEPTION 'Subject % does not exist', p_subject
-        USING ERRCODE = '22003';
-    END IF;
-
-    IF p_material IS NOT NULL AND NOT EXISTS (SELECT 1 FROM vws_materials WHERE material_id = p_material) THEN
+    IF p_material IS NOT NULL AND NOT EXISTS (
+        SELECT 1 FROM material WHERE material_id = p_material
+    ) THEN
         RAISE EXCEPTION 'Material % does not exist', p_material
         USING ERRCODE = '22003';
     END IF;
-
-    IF NOT EXISTS (SELECT 1 FROM vws_teachers WHERE teacher_id = p_teacher) THEN
+    
+    IF NOT EXISTS (
+        SELECT 1 FROM teacher WHERE teacher_id = p_teacher
+    ) THEN
         RAISE EXCEPTION 'Teacher % does not exist', p_teacher
         USING ERRCODE = '22003';
     END IF;
 
-    INSERT INTO Lessons(lesson_name, lesson_class, lesson_subject, lesson_material, lesson_teacher, lesson_date)
-    VALUES (p_name, p_class, p_subject, p_material, p_teacher, COALESCE(p_date, CURRENT_DATE))
+    IF NOT EXISTS (
+        SELECT 1 FROM class WHERE class_name = p_class
+    ) THEN
+        RAISE EXCEPTION 'Class % does not exist', p_class
+        USING ERRCODE = '22003';
+    END IF;
+
+    IF p_class !~ '^(?:[1-9]|1[0-2])-([А-ЩЬЮЯҐЄІЇ]|[а-щьюяґєії])$' THEN
+        RAISE EXCEPTION 'Class "%" does not match format N-Letter (e.g., 7-А)', p_class
+        USING ERRCODE = '23514';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM subjects WHERE subject_id = p_subject
+    ) THEN
+        RAISE EXCEPTION 'Subject % does not exist', p_subject
+        USING ERRCODE = '22003';
+    END IF;
+    
+    IF p_date IS NULL THEN
+        p_date := CURRENT_DATE;
+    END IF;
+
+    INSERT INTO lessons (
+        lesson_name,
+        lesson_class,
+        lesson_subject,
+        lesson_material,
+        lesson_teacher,
+        lesson_date
+    )
+    VALUES (
+        p_name,
+        p_class,
+        p_subject,
+        p_material,
+        p_teacher,
+        p_date
+    )
     RETURNING lesson_id INTO new_lesson_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Lessons', 'INSERT', new_lesson_id::text, SESSION_USER, 'Created lesson');
 END;
-$$;
+$_$;
 
 
-ALTER PROCEDURE public.proc_create_lesson(IN p_name character varying, IN p_class character varying, IN p_subject integer, IN p_material integer, IN p_teacher integer, IN p_date date, OUT new_lesson_id integer) OWNER TO postgres;
+ALTER PROCEDURE public.proc_create_lesson(INOUT p_name character varying, IN p_class character varying, IN p_subject integer, INOUT p_material integer, IN p_teacher integer, INOUT p_date date, OUT new_lesson_id integer) OWNER TO postgres;
 
 --
 -- Name: proc_create_material(character varying, text, text); Type: PROCEDURE; Schema: public; Owner: postgres
 --
 
 CREATE PROCEDURE public.proc_create_material(IN p_name character varying, IN p_desc text, IN p_link text, OUT new_material_id integer)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE plpgsql
     AS $$
 BEGIN
     p_name := NULLIF(trim(p_name), '');
@@ -842,9 +715,6 @@ BEGIN
     INSERT INTO material(material_name, material_desc, material_link)
     VALUES (p_name, p_desc, p_link)
     RETURNING material_id INTO new_material_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Material', 'INSERT', new_material_id::text, SESSION_USER, 'Created material');
 END;
 $$;
 
@@ -856,8 +726,7 @@ ALTER PROCEDURE public.proc_create_material(IN p_name character varying, IN p_de
 --
 
 CREATE PROCEDURE public.proc_create_parent(IN p_name character varying, IN p_surname character varying, IN p_patronym character varying, IN p_phone character varying, IN p_user_id integer, OUT new_parent_id integer, OUT generated_password text)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE plpgsql
     AS $$
 DECLARE
     v_user_id INT;
@@ -881,7 +750,7 @@ BEGIN
 
     /* ---------- If user is provided, validate ---------- */
     IF p_user_id IS NOT NULL THEN
-        IF NOT EXISTS (SELECT 1 FROM vws_users WHERE user_id = p_user_id) THEN
+        IF NOT EXISTS (SELECT 1 FROM users WHERE user_id = p_user_id) THEN
             RAISE EXCEPTION 'User % does not exist', p_user_id
             USING ERRCODE = '22003';
         END IF;
@@ -924,7 +793,7 @@ BEGIN
         /* ---------- Assign parent role ---------- */
         SELECT role_id
         INTO v_parent_role_id
-        FROM vws_roles
+        FROM roles
         WHERE role_name = 'Parent';
 
         IF v_parent_role_id IS NULL THEN
@@ -952,8 +821,6 @@ BEGIN
         v_user_id
     )
     RETURNING parent_id INTO new_parent_id;
-	INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Parent', 'INSERT', new_parent_id::text, SESSION_USER, 'Created parent');
 END;
 $$;
 
@@ -961,32 +828,11 @@ $$;
 ALTER PROCEDURE public.proc_create_parent(IN p_name character varying, IN p_surname character varying, IN p_patronym character varying, IN p_phone character varying, IN p_user_id integer, OUT new_parent_id integer, OUT generated_password text) OWNER TO postgres;
 
 --
--- Name: proc_create_role(character varying, text); Type: PROCEDURE; Schema: public; Owner: postgres
---
-
-CREATE PROCEDURE public.proc_create_role(IN p_role_name character varying, IN p_role_desc text)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
-    AS $$
-BEGIN
-    INSERT INTO Roles (role_name, role_desc)
-    VALUES (p_role_name, p_role_desc);
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Roles', 'INSERT', p_role_name, SESSION_USER, 'Created role ' || p_role_name);
-END;
-$$;
-
-
-ALTER PROCEDURE public.proc_create_role(IN p_role_name character varying, IN p_role_desc text) OWNER TO postgres;
-
---
 -- Name: proc_create_student(character varying, character varying, character varying, character varying, integer, character varying); Type: PROCEDURE; Schema: public; Owner: postgres
 --
 
 CREATE PROCEDURE public.proc_create_student(IN p_name character varying, IN p_surname character varying, IN p_patronym character varying, IN p_phone character varying, IN p_user_id integer, IN p_class character varying, OUT new_student_id integer, OUT generated_password text)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE plpgsql
     AS $$
 DECLARE
     v_user_id INT;
@@ -1009,7 +855,7 @@ BEGIN
     END IF;
 
 	IF NOT EXISTS (
-        SELECT 1 FROM vws_classes WHERE class_name = p_class
+        SELECT 1 FROM class WHERE class_name = p_class
     ) THEN
         RAISE EXCEPTION 'Class % does not exist', p_class
         USING ERRCODE = '22003';
@@ -1017,7 +863,7 @@ BEGIN
 
     /* ---------- If user is provided, validate ---------- */
     IF p_user_id IS NOT NULL THEN
-        IF NOT EXISTS (SELECT 1 FROM vws_users WHERE user_id = p_user_id) THEN
+        IF NOT EXISTS (SELECT 1 FROM users WHERE user_id = p_user_id) THEN
             RAISE EXCEPTION 'User % does not exist', p_user_id
             USING ERRCODE = '22003';
         END IF;
@@ -1060,7 +906,7 @@ BEGIN
         /* ---------- Assign student role ---------- */
         SELECT role_id
         INTO v_student_role_id
-        FROM vws_roles
+        FROM roles
         WHERE role_name = 'Student';
 
         IF v_student_role_id IS NULL THEN
@@ -1090,8 +936,6 @@ BEGIN
 		p_class
     )
     RETURNING student_id INTO new_student_id;
-	INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Student', 'INSERT', new_student_id::text, SESSION_USER, 'Created student');
 END;
 $$;
 
@@ -1103,26 +947,25 @@ ALTER PROCEDURE public.proc_create_student(IN p_name character varying, IN p_sur
 --
 
 CREATE PROCEDURE public.proc_create_studentdata(IN p_journal_id integer, IN p_student_id integer, IN p_lesson integer, IN p_mark smallint, IN p_status public.journal_status_enum, INOUT p_note text, OUT new_data_id integer)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE plpgsql
     AS $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM vws_journals WHERE journal_id = p_journal_id
+        SELECT 1 FROM journal WHERE journal_id = p_journal_id
     ) THEN
         RAISE EXCEPTION 'Journal % does not exist', p_journal_id
         USING ERRCODE = '23503';
     END IF;
 
     IF NOT EXISTS (
-        SELECT 1 FROM vws_students WHERE student_id = p_student_id
+        SELECT 1 FROM students WHERE student_id = p_student_id
     ) THEN
         RAISE EXCEPTION 'Student % does not exist', p_student_id
         USING ERRCODE = '23503';
     END IF;
 
     IF NOT EXISTS (
-        SELECT 1 FROM vws_lessons WHERE lesson_id = p_lesson
+        SELECT 1 FROM lessons WHERE lesson_id = p_lesson
     ) THEN
         RAISE EXCEPTION 'Lesson % does not exist', p_lesson
         USING ERRCODE = '23503';
@@ -1152,9 +995,6 @@ BEGIN
         p_note
     )
     RETURNING data_id INTO new_data_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('StudentData', 'INSERT', new_data_id::text, SESSION_USER, 'Created student data');
 END;
 $$;
 
@@ -1162,34 +1002,22 @@ $$;
 ALTER PROCEDURE public.proc_create_studentdata(IN p_journal_id integer, IN p_student_id integer, IN p_lesson integer, IN p_mark smallint, IN p_status public.journal_status_enum, INOUT p_note text, OUT new_data_id integer) OWNER TO postgres;
 
 --
--- Name: proc_create_subject(text, integer, text); Type: PROCEDURE; Schema: public; Owner: postgres
---
-
-CREATE PROCEDURE public.proc_create_subject(IN p_subject_name text, IN p_cabinet integer, IN p_subject_program text)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
-    AS $$
-BEGIN
-    INSERT INTO Subjects (subject_name, cabinet, subject_program)
-    VALUES (p_subject_name, p_cabinet, p_subject_program);
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Subjects', 'INSERT', p_subject_name, SESSION_USER, 'Created subject ' || p_subject_name);
-END;
-$$;
-
-
-ALTER PROCEDURE public.proc_create_subject(IN p_subject_name text, IN p_cabinet integer, IN p_subject_program text) OWNER TO postgres;
-
---
 -- Name: proc_create_teacher(character varying, character varying, character varying, character varying, integer); Type: PROCEDURE; Schema: public; Owner: postgres
 --
 
-CREATE PROCEDURE public.proc_create_teacher(IN p_name character varying, IN p_surname character varying, IN p_patronym character varying, IN p_phone character varying, IN p_user_id integer, OUT new_teacher_id integer)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+CREATE PROCEDURE public.proc_create_teacher(IN p_name character varying, IN p_surname character varying, IN p_patronym character varying, IN p_phone character varying, IN p_user_id integer, OUT new_teacher_id integer, OUT generated_password text)
+    LANGUAGE plpgsql
     AS $$
+DECLARE
+    v_user_id INT;
+    v_username TEXT;
+    v_email TEXT;
+    v_password TEXT;
+    v_patronym_part TEXT;
+    v_teacher_role_id INT;
 BEGIN
+	generated_password := NULL;
+    /* ---------- Normalize input ---------- */
     p_name := NULLIF(trim(p_name), '');
     p_surname := NULLIF(trim(p_surname), '');
     p_patronym := NULLIF(trim(p_patronym), '');
@@ -1200,13 +1028,64 @@ BEGIN
         USING ERRCODE = '23514';
     END IF;
 
-    IF p_user_id IS NOT NULL AND NOT EXISTS (
-        SELECT 1 FROM vws_users WHERE user_id = p_user_id
-    ) THEN
-        RAISE EXCEPTION 'User % does not exist', p_user_id
-        USING ERRCODE = '22003';
+    /* ---------- If user is provided, validate ---------- */
+    IF p_user_id IS NOT NULL THEN
+        IF NOT EXISTS (SELECT 1 FROM users WHERE user_id = p_user_id) THEN
+            RAISE EXCEPTION 'User % does not exist', p_user_id
+            USING ERRCODE = '22003';
+        END IF;
+
+        v_user_id := p_user_id;
+
+    ELSE
+        /* ---------- Generate username / email / password ---------- */
+
+		v_patronym_part :=
+		    substr(
+		        translit_uk_to_lat(coalesce(p_patronym, 'xxx')),
+		        1,
+		        3
+		    );
+
+        v_username :=
+		    translit_uk_to_lat(p_name) ||
+		    translit_uk_to_lat(p_surname) ||
+		    v_patronym_part;
+		
+		v_email :=
+		    translit_uk_to_lat(p_name) ||
+		    translit_uk_to_lat(p_surname) ||
+		    v_patronym_part || '@school.edu.ua';
+
+        generated_password :=
+		    encode(gen_random_bytes(6), 'base64');
+		
+		v_password := generated_password;
+		
+        /* ---------- Register user ---------- */
+        CALL proc_register_user(
+            v_username,
+            v_email,
+            v_password,
+            v_user_id
+        );
+
+        /* ---------- Assign teacher role ---------- */
+        SELECT role_id
+        INTO v_teacher_role_id
+        FROM roles
+        WHERE role_name = 'Teacher';
+
+        IF v_teacher_role_id IS NULL THEN
+            RAISE EXCEPTION 'Role teacher does not exist';
+        END IF;
+
+        CALL proc_assign_role_to_user(v_user_id, v_teacher_role_id);
+
+        RAISE NOTICE 'Generated password for %: %', v_username, v_password;
     END IF;
 
+    /* ---------- Create parent entity ---------- */
     INSERT INTO teacher (
         teacher_name,
         teacher_surname,
@@ -1219,45 +1098,21 @@ BEGIN
         p_surname,
         p_patronym,
         p_phone,
-        p_user_id
+        v_user_id
     )
     RETURNING teacher_id INTO new_teacher_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Teacher', 'INSERT', new_teacher_id::text, SESSION_USER, 'Created teacher');
 END;
 $$;
 
 
-ALTER PROCEDURE public.proc_create_teacher(IN p_name character varying, IN p_surname character varying, IN p_patronym character varying, IN p_phone character varying, IN p_user_id integer, OUT new_teacher_id integer) OWNER TO postgres;
-
---
--- Name: proc_create_timetable(character varying, character varying); Type: PROCEDURE; Schema: public; Owner: postgres
---
-
-CREATE PROCEDURE public.proc_create_timetable(IN p_timetable_name character varying, IN p_timetable_class character varying)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
-    AS $$
-BEGIN
-    INSERT INTO Timetable (timetable_name, timetable_class)
-    VALUES (p_timetable_name, p_timetable_class);
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Timetable', 'INSERT', p_timetable_name, SESSION_USER, 'Created timetable ' || p_timetable_name);
-END;
-$$;
-
-
-ALTER PROCEDURE public.proc_create_timetable(IN p_timetable_name character varying, IN p_timetable_class character varying) OWNER TO postgres;
+ALTER PROCEDURE public.proc_create_teacher(IN p_name character varying, IN p_surname character varying, IN p_patronym character varying, IN p_phone character varying, IN p_user_id integer, OUT new_teacher_id integer, OUT generated_password text) OWNER TO postgres;
 
 --
 -- Name: proc_create_user(character varying, character varying, character varying); Type: PROCEDURE; Schema: public; Owner: postgres
 --
 
 CREATE PROCEDURE public.proc_create_user(IN p_username character varying, IN p_email character varying, IN p_password character varying, OUT new_user_id integer)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE plpgsql
     AS $$
 BEGIN
     p_username := NULLIF(trim(p_username), '');
@@ -1280,14 +1135,14 @@ BEGIN
     END IF;
 
     IF EXISTS (
-        SELECT 1 FROM vws_users WHERE username = p_username
+        SELECT 1 FROM users WHERE username = p_username
     ) THEN
         RAISE EXCEPTION 'Username % already exists', p_username
         USING ERRCODE = '23505';
     END IF;
 
     IF EXISTS (
-        SELECT 1 FROM vws_users WHERE email = p_email
+        SELECT 1 FROM users WHERE email = p_email
     ) THEN
         RAISE EXCEPTION 'Email % already exists', p_email
         USING ERRCODE = '23505';
@@ -1296,9 +1151,6 @@ BEGIN
     INSERT INTO users (username, email, password)
     VALUES (p_username, p_email, p_password)
     RETURNING user_id INTO new_user_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Users', 'INSERT', new_user_id::text, SESSION_USER, 'Created user');
 END;
 $$;
 
@@ -1306,46 +1158,19 @@ $$;
 ALTER PROCEDURE public.proc_create_user(IN p_username character varying, IN p_email character varying, IN p_password character varying, OUT new_user_id integer) OWNER TO postgres;
 
 --
--- Name: proc_delete_class(character varying); Type: PROCEDURE; Schema: public; Owner: postgres
---
-
-CREATE PROCEDURE public.proc_delete_class(IN p_class_name character varying)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
-    AS $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM Class WHERE class_name = p_class_name) THEN
-        RAISE EXCEPTION 'Class % does not exist', p_class_name;
-    END IF;
-
-    DELETE FROM Class WHERE class_name = p_class_name;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Class', 'DELETE', p_class_name, SESSION_USER, 'Deleted class ' || p_class_name);
-END;
-$$;
-
-
-ALTER PROCEDURE public.proc_delete_class(IN p_class_name character varying) OWNER TO postgres;
-
---
 -- Name: proc_delete_day(integer); Type: PROCEDURE; Schema: public; Owner: postgres
 --
 
 CREATE PROCEDURE public.proc_delete_day(IN p_id integer)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE plpgsql
     AS $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM vws_days WHERE day_id = p_id) THEN
+    IF NOT EXISTS (SELECT 1 FROM days WHERE day_id = p_id) THEN
         RAISE EXCEPTION 'Day % does not exist', p_id
         USING ERRCODE = '22003';
     END IF;
 
     DELETE FROM days WHERE day_id = p_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Days', 'DELETE', p_id::text, SESSION_USER, 'Deleted day');
 END;
 $$;
 
@@ -1357,19 +1182,15 @@ ALTER PROCEDURE public.proc_delete_day(IN p_id integer) OWNER TO postgres;
 --
 
 CREATE PROCEDURE public.proc_delete_homework(IN p_id integer)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE plpgsql
     AS $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM vws_homeworks WHERE homework_id = p_id) THEN
+    IF NOT EXISTS (SELECT 1 FROM homework WHERE homework_id = p_id) THEN
         RAISE EXCEPTION 'Homework % does not exist', p_id
         USING ERRCODE = '22003';
     END IF;
 
     DELETE FROM homework WHERE homework_id = p_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Homework', 'DELETE', p_id::text, SESSION_USER, 'Deleted homework');
 END;
 $$;
 
@@ -1377,46 +1198,19 @@ $$;
 ALTER PROCEDURE public.proc_delete_homework(IN p_id integer) OWNER TO postgres;
 
 --
--- Name: proc_delete_journal(integer); Type: PROCEDURE; Schema: public; Owner: postgres
---
-
-CREATE PROCEDURE public.proc_delete_journal(IN p_journal_id integer)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
-    AS $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM Journal WHERE journal_id = p_journal_id) THEN
-        RAISE EXCEPTION 'Journal with ID % does not exist', p_journal_id;
-    END IF;
-
-    DELETE FROM Journal WHERE journal_id = p_journal_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Journal', 'DELETE', p_journal_id::TEXT, SESSION_USER, 'Deleted journal ' || p_journal_id);
-END;
-$$;
-
-
-ALTER PROCEDURE public.proc_delete_journal(IN p_journal_id integer) OWNER TO postgres;
-
---
 -- Name: proc_delete_lesson(integer); Type: PROCEDURE; Schema: public; Owner: postgres
 --
 
 CREATE PROCEDURE public.proc_delete_lesson(IN p_id integer)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE plpgsql
     AS $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM vws_lessons WHERE lesson_id = p_id) THEN
+    IF NOT EXISTS (SELECT 1 FROM lessons WHERE lesson_id = p_id) THEN
         RAISE EXCEPTION 'Lesson % does not exist', p_id
         USING ERRCODE = '22003';
     END IF;
 
     DELETE FROM lessons WHERE lesson_id = p_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Lessons', 'DELETE', p_id::text, SESSION_USER, 'Deleted lesson');
 END;
 $$;
 
@@ -1428,19 +1222,15 @@ ALTER PROCEDURE public.proc_delete_lesson(IN p_id integer) OWNER TO postgres;
 --
 
 CREATE PROCEDURE public.proc_delete_material(IN p_id integer)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE plpgsql
     AS $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM vws_materials WHERE material_id = p_id) THEN
+    IF NOT EXISTS (SELECT 1 FROM material WHERE material_id = p_id) THEN
         RAISE EXCEPTION 'Material % does not exist', p_id
         USING ERRCODE = '22003';
     END IF;
 
     DELETE FROM material WHERE material_id = p_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Material', 'DELETE', p_id::text, SESSION_USER, 'Deleted material');
 END;
 $$;
 
@@ -1452,25 +1242,21 @@ ALTER PROCEDURE public.proc_delete_material(IN p_id integer) OWNER TO postgres;
 --
 
 CREATE PROCEDURE public.proc_delete_parent(IN p_id integer)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE plpgsql
     AS $$
 DECLARE
     v_user_id integer;
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM vws_parents WHERE parent_id = p_id) THEN
+    IF NOT EXISTS (SELECT 1 FROM parents WHERE parent_id = p_id) THEN
         RAISE EXCEPTION 'Parent % does not exist', p_id
         USING ERRCODE = '22003';
     END IF;
 
     SELECT parent_user_id INTO v_user_id
-    FROM vws_parents
+    FROM parents
     WHERE parent_id = p_id;
 
     DELETE FROM parents WHERE parent_id = p_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Parents', 'DELETE', p_id::text, SESSION_USER, 'Deleted parent');
 
     IF v_user_id IS NOT NULL THEN
         PERFORM proc_delete_user(v_user_id);
@@ -1482,55 +1268,28 @@ $$;
 ALTER PROCEDURE public.proc_delete_parent(IN p_id integer) OWNER TO postgres;
 
 --
--- Name: proc_delete_role(integer); Type: PROCEDURE; Schema: public; Owner: postgres
---
-
-CREATE PROCEDURE public.proc_delete_role(IN p_role_id integer)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
-    AS $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM Roles WHERE role_id = p_role_id) THEN
-        RAISE EXCEPTION 'Role with ID % does not exist', p_role_id;
-    END IF;
-
-    DELETE FROM Roles WHERE role_id = p_role_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Roles', 'DELETE', p_role_id::TEXT, SESSION_USER, 'Deleted role ' || p_role_id);
-END;
-$$;
-
-
-ALTER PROCEDURE public.proc_delete_role(IN p_role_id integer) OWNER TO postgres;
-
---
 -- Name: proc_delete_student(integer); Type: PROCEDURE; Schema: public; Owner: postgres
 --
 
 CREATE PROCEDURE public.proc_delete_student(IN p_id integer)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE plpgsql
     AS $$
 DECLARE
     v_user_id integer;
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM vws_students WHERE student_id = p_id) THEN
+    IF NOT EXISTS (SELECT 1 FROM students WHERE student_id = p_id) THEN
         RAISE EXCEPTION 'Student % does not exist', p_id
         USING ERRCODE = '22003';
     END IF;
 
     SELECT student_user_id INTO v_user_id
-    FROM vws_students
+    FROM students
     WHERE student_id = p_id;
 
     DELETE FROM students WHERE student_id = p_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Students', 'DELETE', p_id::text, SESSION_USER, 'Deleted student');
-
     IF v_user_id IS NOT NULL THEN
-        PERFORM proc_delete_user(v_user_id);
+        CALL proc_delete_user(v_user_id);
     END IF;
 END;
 $$;
@@ -1543,19 +1302,15 @@ ALTER PROCEDURE public.proc_delete_student(IN p_id integer) OWNER TO postgres;
 --
 
 CREATE PROCEDURE public.proc_delete_studentdata(IN p_id integer)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE plpgsql
     AS $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM vws_student_data WHERE data_id = p_id) THEN
+    IF NOT EXISTS (SELECT 1 FROM studentdata WHERE data_id = p_id) THEN
         RAISE EXCEPTION 'StudentData % does not exist', p_id
         USING ERRCODE = '22003';
     END IF;
 
     DELETE FROM studentdata WHERE data_id = p_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('StudentData', 'DELETE', p_id::text, SESSION_USER, 'Deleted student data');
 END;
 $$;
 
@@ -1563,52 +1318,25 @@ $$;
 ALTER PROCEDURE public.proc_delete_studentdata(IN p_id integer) OWNER TO postgres;
 
 --
--- Name: proc_delete_subject(integer); Type: PROCEDURE; Schema: public; Owner: postgres
---
-
-CREATE PROCEDURE public.proc_delete_subject(IN p_subject_id integer)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
-    AS $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM Subjects WHERE subject_id = p_subject_id) THEN
-        RAISE EXCEPTION 'Subject with ID % does not exist', p_subject_id;
-    END IF;
-
-    DELETE FROM Subjects WHERE subject_id = p_subject_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Subjects', 'DELETE', p_subject_id::TEXT, SESSION_USER, 'Deleted subject ' || p_subject_id);
-END;
-$$;
-
-
-ALTER PROCEDURE public.proc_delete_subject(IN p_subject_id integer) OWNER TO postgres;
-
---
 -- Name: proc_delete_teacher(integer); Type: PROCEDURE; Schema: public; Owner: postgres
 --
 
 CREATE PROCEDURE public.proc_delete_teacher(IN p_id integer)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE plpgsql
     AS $$
 DECLARE
     v_user_id integer;
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM vws_teachers WHERE teacher_id = p_id) THEN
+    IF NOT EXISTS (SELECT 1 FROM teacher WHERE teacher_id = p_id) THEN
         RAISE EXCEPTION 'Teacher % does not exist', p_id
         USING ERRCODE = '22003';
     END IF;
 
     SELECT teacher_user_id INTO v_user_id
-    FROM vws_teachers
+    FROM teacher
     WHERE teacher_id = p_id;
 
     DELETE FROM teacher WHERE teacher_id = p_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Teacher', 'DELETE', p_id::text, SESSION_USER, 'Deleted teacher');
 
     IF v_user_id IS NOT NULL THEN
         PERFORM proc_delete_user(v_user_id);
@@ -1620,46 +1348,19 @@ $$;
 ALTER PROCEDURE public.proc_delete_teacher(IN p_id integer) OWNER TO postgres;
 
 --
--- Name: proc_delete_timetable(integer); Type: PROCEDURE; Schema: public; Owner: postgres
---
-
-CREATE PROCEDURE public.proc_delete_timetable(IN p_timetable_id integer)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
-    AS $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM Timetable WHERE timetable_id = p_timetable_id) THEN
-        RAISE EXCEPTION 'Timetable with ID % does not exist', p_timetable_id;
-    END IF;
-
-    DELETE FROM Timetable WHERE timetable_id = p_timetable_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Timetable', 'DELETE', p_timetable_id::TEXT, SESSION_USER, 'Deleted timetable ' || p_timetable_id);
-END;
-$$;
-
-
-ALTER PROCEDURE public.proc_delete_timetable(IN p_timetable_id integer) OWNER TO postgres;
-
---
 -- Name: proc_delete_user(integer); Type: PROCEDURE; Schema: public; Owner: postgres
 --
 
 CREATE PROCEDURE public.proc_delete_user(IN p_id integer)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE plpgsql
     AS $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM vws_users WHERE user_id = p_id) THEN
+    IF NOT EXISTS (SELECT 1 FROM users WHERE user_id = p_id) THEN
         RAISE EXCEPTION 'User % does not exist', p_id
         USING ERRCODE = '22003';
     END IF;
 
     DELETE FROM users WHERE user_id = p_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Users', 'DELETE', p_id::text, SESSION_USER, 'Deleted user');
 END;
 $$;
 
@@ -1671,8 +1372,7 @@ ALTER PROCEDURE public.proc_delete_user(IN p_id integer) OWNER TO postgres;
 --
 
 CREATE PROCEDURE public.proc_register_user(IN p_username character varying, IN p_email character varying, IN p_password text, OUT new_user_id integer)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE plpgsql
     AS $$
 BEGIN
     /* ---------- Normalize ---------- */
@@ -1695,12 +1395,12 @@ BEGIN
         USING ERRCODE = '23514';
     END IF;
 
-    IF EXISTS (SELECT 1 FROM vws_users WHERE username = p_username) THEN
+    IF EXISTS (SELECT 1 FROM users WHERE username = p_username) THEN
         RAISE EXCEPTION 'Username % already exists', p_username
         USING ERRCODE = '23505';
     END IF;
 
-    IF EXISTS (SELECT 1 FROM vws_users WHERE email = p_email) THEN
+    IF EXISTS (SELECT 1 FROM users WHERE email = p_email) THEN
         RAISE EXCEPTION 'Email % already exists', p_email
         USING ERRCODE = '23505';
     END IF;
@@ -1726,17 +1426,16 @@ ALTER PROCEDURE public.proc_register_user(IN p_username character varying, IN p_
 --
 
 CREATE PROCEDURE public.proc_remove_role_from_user(IN p_user_id integer, IN p_role_id integer)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE plpgsql
     AS $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM vws_users WHERE user_id = p_user_id) THEN
+    IF NOT EXISTS (SELECT 1 FROM users WHERE user_id = p_user_id) THEN
         RAISE EXCEPTION 'User % does not exist', p_user_id
         USING ERRCODE = '22003';
     END IF;
 
     IF NOT EXISTS (
-        SELECT 1 FROM vws_user_roles
+        SELECT 1 FROM userrole
         WHERE user_id = p_user_id AND role_id = p_role_id
     ) THEN
         RAISE EXCEPTION 'Role % is not assigned to user %', p_role_id, p_user_id
@@ -1745,9 +1444,6 @@ BEGIN
 
     DELETE FROM userrole
     WHERE user_id = p_user_id AND role_id = p_role_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('UserRole', 'DELETE', p_user_id || ',' || p_role_id, SESSION_USER, 'Removed role from user');
 END;
 $$;
 
@@ -1759,12 +1455,11 @@ ALTER PROCEDURE public.proc_remove_role_from_user(IN p_user_id integer, IN p_rol
 --
 
 CREATE PROCEDURE public.proc_reset_user_password(IN p_user_id integer, IN p_new_password character varying)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE plpgsql
     AS $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM vws_users WHERE user_id = p_user_id
+        SELECT 1 FROM users WHERE user_id = p_user_id
     ) THEN
         RAISE EXCEPTION 'User % does not exist', p_user_id
         USING ERRCODE = '22003';
@@ -1780,9 +1475,6 @@ BEGIN
     UPDATE users
     SET password = p_new_password
     WHERE user_id = p_user_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Users', 'UPDATE', p_user_id::text, SESSION_USER, 'Reset user password');
 END;
 $$;
 
@@ -1794,23 +1486,19 @@ ALTER PROCEDURE public.proc_reset_user_password(IN p_user_id integer, IN p_new_p
 --
 
 CREATE PROCEDURE public.proc_unassign_student_parent(IN p_student_id integer, IN p_parent_id integer)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE plpgsql
     AS $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM vws_student_parents
-        WHERE student_id_ref = p_student_id AND parent_id_ref = p_parent_id
+        SELECT 1 FROM studentparent
+        WHERE student_id = p_student_id AND parent_id = p_parent_id
     ) THEN
         RAISE EXCEPTION 'No assignment exists between student % and parent %', p_student_id, p_parent_id
         USING ERRCODE = '22003';
     END IF;
 
     DELETE FROM studentparent
-    WHERE student_id_ref = p_student_id AND parent_id_ref = p_parent_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('StudentParent', 'DELETE', p_student_id || ',' || p_parent_id, SESSION_USER, 'Unassigned student from parent');
+    WHERE student_id = p_student_id AND parent_id = p_parent_id;
 END;
 $$;
 
@@ -1818,56 +1506,29 @@ $$;
 ALTER PROCEDURE public.proc_unassign_student_parent(IN p_student_id integer, IN p_parent_id integer) OWNER TO postgres;
 
 --
--- Name: proc_update_class(character varying, integer, integer); Type: PROCEDURE; Schema: public; Owner: postgres
---
-
-CREATE PROCEDURE public.proc_update_class(IN p_class_name character varying, IN p_class_journal_id integer, IN p_class_mainteacher integer)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
-    AS $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM Class WHERE class_name = p_class_name) THEN
-        RAISE EXCEPTION 'Class % does not exist', p_class_name;
-    END IF;
-
-    UPDATE Class
-    SET class_journal_id = COALESCE(p_class_journal_id, class_journal_id),
-        class_mainTeacher = COALESCE(p_class_mainTeacher, class_mainTeacher)
-    WHERE class_name = p_class_name;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Class', 'UPDATE', p_class_name, SESSION_USER, 'Updated class ' || p_class_name);
-END;
-$$;
-
-
-ALTER PROCEDURE public.proc_update_class(IN p_class_name character varying, IN p_class_journal_id integer, IN p_class_mainteacher integer) OWNER TO postgres;
-
---
 -- Name: proc_update_day(integer, integer, integer, time without time zone, character varying); Type: PROCEDURE; Schema: public; Owner: postgres
 --
 
 CREATE PROCEDURE public.proc_update_day(IN p_id integer, IN p_subject integer, IN p_timetable integer, IN p_time time without time zone DEFAULT NULL::time without time zone, IN p_weekday character varying DEFAULT NULL::character varying)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE plpgsql
     AS $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM vws_days WHERE day_id = p_id
+        SELECT 1 FROM days WHERE day_id = p_id
     ) THEN
         RAISE EXCEPTION 'Day % does not exist', p_id
         USING ERRCODE = '22003';
     END IF;
 	
 	IF NOT EXISTS (
-        SELECT 1 FROM vws_timetables WHERE timetable_id = p_timetable
+        SELECT 1 FROM timetable WHERE timetable_id = p_timetable
     ) THEN
         RAISE EXCEPTION 'Timetable % does not exist', p_timetable
         USING ERRCODE = '22003';
     END IF;
 
 	IF NOT EXISTS (
-        SELECT 1 FROM vws_subjects WHERE subject_id = p_subject
+        SELECT 1 FROM subjects WHERE subject_id = p_subject
     ) THEN
         RAISE EXCEPTION 'Subject % does not exist', p_subject
         USING ERRCODE = '22003';
@@ -1887,9 +1548,6 @@ BEGIN
         day_time    = COALESCE(p_time, day_time),
         day_weekday = COALESCE(p_weekday, day_weekday)
     WHERE day_id = p_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Days', 'UPDATE', p_id::text, SESSION_USER, 'Updated day');
 END;
 $$;
 
@@ -1901,12 +1559,11 @@ ALTER PROCEDURE public.proc_update_day(IN p_id integer, IN p_subject integer, IN
 --
 
 CREATE PROCEDURE public.proc_update_homework(IN p_id integer, IN p_name character varying DEFAULT NULL::character varying, IN p_teacher integer DEFAULT NULL::integer, IN p_lesson integer DEFAULT NULL::integer, IN p_duedate date DEFAULT NULL::date, IN p_desc text DEFAULT NULL::text, IN p_class character varying DEFAULT NULL::character varying)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE plpgsql
     AS $_$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM vws_homeworks WHERE homework_id = p_id
+        SELECT 1 FROM homework WHERE homework_id = p_id
     ) THEN
         RAISE EXCEPTION 'Homework % does not exist', p_id
         USING ERRCODE = '22003';
@@ -1922,14 +1579,14 @@ BEGIN
     END IF;
 
     IF p_teacher IS NOT NULL AND NOT EXISTS (
-        SELECT 1 FROM vws_teachers WHERE teacher_id = p_teacher
+        SELECT 1 FROM teacher WHERE teacher_id = p_teacher
     ) THEN
         RAISE EXCEPTION 'Teacher % does not exist', p_teacher
         USING ERRCODE = '22003';
     END IF;
 
     IF p_lesson IS NOT NULL AND NOT EXISTS (
-        SELECT 1 FROM vws_lessons WHERE lesson_id = p_lesson
+        SELECT 1 FROM lessons WHERE lesson_id = p_lesson
     ) THEN
         RAISE EXCEPTION 'Lesson % does not exist', p_lesson
         USING ERRCODE = '22003';
@@ -1937,7 +1594,7 @@ BEGIN
 
     IF p_class IS NOT NULL THEN
         IF NOT EXISTS (
-            SELECT 1 FROM vws_classes WHERE class_name = p_class
+            SELECT 1 FROM class WHERE class_name = p_class
         ) THEN
             RAISE EXCEPTION 'Class % does not exist', p_class
             USING ERRCODE = '22003';
@@ -1963,9 +1620,6 @@ BEGIN
         homework_desc    = COALESCE(p_desc, homework_desc),
         homework_class   = COALESCE(p_class, homework_class)
     WHERE homework_id = p_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Homework', 'UPDATE', p_id::text, SESSION_USER, 'Updated homework');
 END;
 $_$;
 
@@ -1973,42 +1627,15 @@ $_$;
 ALTER PROCEDURE public.proc_update_homework(IN p_id integer, IN p_name character varying, IN p_teacher integer, IN p_lesson integer, IN p_duedate date, IN p_desc text, IN p_class character varying) OWNER TO postgres;
 
 --
--- Name: proc_update_journal(integer, integer, character varying); Type: PROCEDURE; Schema: public; Owner: postgres
---
-
-CREATE PROCEDURE public.proc_update_journal(IN p_journal_id integer, IN p_journal_teacher integer, IN p_journal_name character varying)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
-    AS $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM Journal WHERE journal_id = p_journal_id) THEN
-        RAISE EXCEPTION 'Journal with ID % does not exist', p_journal_id;
-    END IF;
-
-    UPDATE Journal
-    SET journal_teacher = COALESCE(p_journal_teacher, journal_teacher),
-        journal_name = COALESCE(p_journal_name, journal_name)
-    WHERE journal_id = p_journal_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Journal', 'UPDATE', p_journal_id::TEXT, SESSION_USER, 'Updated journal ' || p_journal_id);
-END;
-$$;
-
-
-ALTER PROCEDURE public.proc_update_journal(IN p_journal_id integer, IN p_journal_teacher integer, IN p_journal_name character varying) OWNER TO postgres;
-
---
 -- Name: proc_update_lesson(integer, character varying, character varying, integer, integer, integer, date); Type: PROCEDURE; Schema: public; Owner: postgres
 --
 
 CREATE PROCEDURE public.proc_update_lesson(IN p_lesson_id integer, IN p_name character varying DEFAULT NULL::character varying, IN p_class character varying DEFAULT NULL::character varying, IN p_subject integer DEFAULT NULL::integer, IN p_material integer DEFAULT NULL::integer, IN p_teacher integer DEFAULT NULL::integer, IN p_date date DEFAULT NULL::date)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE plpgsql
     AS $_$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM vws_lessons WHERE lesson_id = p_lesson_id
+        SELECT 1 FROM lessons WHERE lesson_id = p_lesson_id
     ) THEN
         RAISE EXCEPTION 'Lesson % does not exist', p_lesson_id
         USING ERRCODE = '22003';
@@ -2021,7 +1648,7 @@ BEGIN
     END IF;
 
     IF p_teacher IS NOT NULL AND NOT EXISTS (
-        SELECT 1 FROM vws_teachers WHERE teacher_id = p_teacher
+        SELECT 1 FROM teacher WHERE teacher_id = p_teacher
     ) THEN
         RAISE EXCEPTION 'Teacher % does not exist', p_teacher
         USING ERRCODE = '22003';
@@ -2029,7 +1656,7 @@ BEGIN
 
     IF p_class IS NOT NULL THEN
         IF NOT EXISTS (
-            SELECT 1 FROM vws_classes WHERE class_name = p_class
+            SELECT 1 FROM class WHERE class_name = p_class
         ) THEN
             RAISE EXCEPTION 'Class % does not exist', p_class
             USING ERRCODE = '22003';
@@ -2042,7 +1669,7 @@ BEGIN
     END IF;
 
     IF p_subject IS NOT NULL AND NOT EXISTS (
-        SELECT 1 FROM vws_subjects WHERE subject_id = p_subject
+        SELECT 1 FROM subjects WHERE subject_id = p_subject
     ) THEN
         RAISE EXCEPTION 'Subject % does not exist', p_subject
         USING ERRCODE = '22003';
@@ -2057,9 +1684,6 @@ BEGIN
         lesson_teacher  = COALESCE(p_teacher, lesson_teacher),
         lesson_date     = COALESCE(p_date, lesson_date)
     WHERE lesson_id = p_lesson_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Lessons', 'UPDATE', p_lesson_id::text, SESSION_USER, 'Updated lesson');
 END;
 $_$;
 
@@ -2071,12 +1695,11 @@ ALTER PROCEDURE public.proc_update_lesson(IN p_lesson_id integer, IN p_name char
 --
 
 CREATE PROCEDURE public.proc_update_material(IN p_id integer, IN p_name character varying, IN p_desc text, IN p_link text)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE plpgsql
     AS $$
 BEGIN
     IF NOT EXISTS (
-		SELECT 1 FROM vws_materials WHERE material_id = p_id
+		SELECT 1 FROM material WHERE material_id = p_id
     ) THEN
         RAISE EXCEPTION 'Material % does not exist', p_id
         USING ERRCODE = '22003';
@@ -2097,9 +1720,6 @@ BEGIN
 		material_desc	= COALESCE(p_desc, material_desc),
 		material_link	= COALESCE(p_link, material_link)
 	WHERE material_id = p_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Material', 'UPDATE', p_id::text, SESSION_USER, 'Updated material');
 END;
 $$;
 
@@ -2111,12 +1731,11 @@ ALTER PROCEDURE public.proc_update_material(IN p_id integer, IN p_name character
 --
 
 CREATE PROCEDURE public.proc_update_parent(IN p_id integer, IN p_name character varying, IN p_surname character varying, IN p_patronym character varying, IN p_phone character varying, IN p_user_id integer)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE plpgsql
     AS $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM vws_parents WHERE parent_id = p_id
+        SELECT 1 FROM parents WHERE parent_id = p_id
     ) THEN
         RAISE EXCEPTION 'Parent % does not exist', p_id
         USING ERRCODE = '22003';
@@ -2128,7 +1747,7 @@ BEGIN
     p_phone := NULLIF(trim(p_phone), '');
 
     IF p_user_id IS NOT NULL AND NOT EXISTS (
-        SELECT 1 FROM vws_users WHERE user_id = p_user_id
+        SELECT 1 FROM users WHERE user_id = p_user_id
     ) THEN
         RAISE EXCEPTION 'User % does not exist', p_user_id
         USING ERRCODE = '22003';
@@ -2142,9 +1761,6 @@ BEGIN
         parent_phone     = COALESCE(p_phone, parent_phone),
         parent_user_id   = COALESCE(p_user_id, parent_user_id)
     WHERE parent_id = p_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Parents', 'UPDATE', p_id::text, SESSION_USER, 'Updated parent');
 END;
 $$;
 
@@ -2152,42 +1768,15 @@ $$;
 ALTER PROCEDURE public.proc_update_parent(IN p_id integer, IN p_name character varying, IN p_surname character varying, IN p_patronym character varying, IN p_phone character varying, IN p_user_id integer) OWNER TO postgres;
 
 --
--- Name: proc_update_role(integer, character varying, text); Type: PROCEDURE; Schema: public; Owner: postgres
---
-
-CREATE PROCEDURE public.proc_update_role(IN p_role_id integer, IN p_role_name character varying, IN p_role_desc text)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
-    AS $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM Roles WHERE role_id = p_role_id) THEN
-        RAISE EXCEPTION 'Role with ID % does not exist', p_role_id;
-    END IF;
-
-    UPDATE Roles
-    SET role_name = COALESCE(p_role_name, role_name),
-        role_desc = COALESCE(p_role_desc, role_desc)
-    WHERE role_id = p_role_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Roles', 'UPDATE', p_role_id::TEXT, SESSION_USER, 'Updated role ' || p_role_id);
-END;
-$$;
-
-
-ALTER PROCEDURE public.proc_update_role(IN p_role_id integer, IN p_role_name character varying, IN p_role_desc text) OWNER TO postgres;
-
---
 -- Name: proc_update_student(integer, character varying, character varying, character varying, character varying, integer, character varying); Type: PROCEDURE; Schema: public; Owner: postgres
 --
 
 CREATE PROCEDURE public.proc_update_student(IN p_id integer, IN p_name character varying, IN p_surname character varying, IN p_patronym character varying, IN p_phone character varying, IN p_user_id integer, IN p_class character varying)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE plpgsql
     AS $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM vws_students WHERE student_id = p_id
+        SELECT 1 FROM students WHERE student_id = p_id
     ) THEN
         RAISE EXCEPTION 'Student % does not exist', p_id
         USING ERRCODE = '22003';
@@ -2199,14 +1788,14 @@ BEGIN
     p_phone := NULLIF(trim(p_phone), '');
 
     IF p_class IS NOT NULL AND NOT EXISTS (
-        SELECT 1 FROM vws_classes WHERE class_name = p_class
+        SELECT 1 FROM class WHERE class_name = p_class
     ) THEN
         RAISE EXCEPTION 'Class % does not exist', p_class
         USING ERRCODE = '22003';
     END IF;
 
     IF p_user_id IS NOT NULL AND NOT EXISTS (
-        SELECT 1 FROM vws_users WHERE user_id = p_user_id
+        SELECT 1 FROM users WHERE user_id = p_user_id
     ) THEN
         RAISE EXCEPTION 'User % does not exist', p_user_id
         USING ERRCODE = '22003';
@@ -2221,9 +1810,6 @@ BEGIN
         student_user_id    = COALESCE(p_user_id, student_user_id),
         student_class      = COALESCE(p_class, student_class)
     WHERE student_id = p_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Students', 'UPDATE', p_id::text, SESSION_USER, 'Updated student');
 END;
 $$;
 
@@ -2235,12 +1821,11 @@ ALTER PROCEDURE public.proc_update_student(IN p_id integer, IN p_name character 
 --
 
 CREATE PROCEDURE public.proc_update_studentdata(IN p_id integer, IN p_journal_id integer DEFAULT NULL::integer, IN p_student_id integer DEFAULT NULL::integer, IN p_lesson integer DEFAULT NULL::integer, IN p_mark smallint DEFAULT NULL::smallint, IN p_status public.journal_status_enum DEFAULT NULL::public.journal_status_enum, IN p_note text DEFAULT NULL::text)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE plpgsql
     AS $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM vws_student_data WHERE data_id = p_id
+        SELECT 1 FROM studentdata WHERE data_id = p_id
     ) THEN
         RAISE EXCEPTION 'Studentdata % does not exist', p_id
         USING ERRCODE = '22003';
@@ -2249,21 +1834,21 @@ BEGIN
     p_note := NULLIF(trim(p_note), '');
 
     IF p_journal_id IS NOT NULL AND NOT EXISTS (
-        SELECT 1 FROM vws_journals WHERE journal_id = p_journal_id
+        SELECT 1 FROM journal WHERE journal_id = p_journal_id
     ) THEN
         RAISE EXCEPTION 'Journal % does not exist', p_journal_id
         USING ERRCODE = '22003';
     END IF;
 
     IF p_student_id IS NOT NULL AND NOT EXISTS (
-        SELECT 1 FROM vws_students WHERE student_id = p_student_id
+        SELECT 1 FROM students WHERE student_id = p_student_id
     ) THEN
         RAISE EXCEPTION 'Student % does not exist', p_student_id
         USING ERRCODE = '22003';
     END IF;
 
     IF p_lesson IS NOT NULL AND NOT EXISTS (
-        SELECT 1 FROM vws_lessons WHERE lesson_id = p_lesson
+        SELECT 1 FROM lessons WHERE lesson_id = p_lesson
     ) THEN
         RAISE EXCEPTION 'Lesson % does not exist', p_lesson
         USING ERRCODE = '22003';
@@ -2283,9 +1868,6 @@ BEGIN
         status     = COALESCE(p_status, status),
         note       = COALESCE(p_note, note)
     WHERE data_id = p_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('StudentData', 'UPDATE', p_id::text, SESSION_USER, 'Updated student data');
 END;
 $$;
 
@@ -2293,43 +1875,15 @@ $$;
 ALTER PROCEDURE public.proc_update_studentdata(IN p_id integer, IN p_journal_id integer, IN p_student_id integer, IN p_lesson integer, IN p_mark smallint, IN p_status public.journal_status_enum, IN p_note text) OWNER TO postgres;
 
 --
--- Name: proc_update_subject(integer, text, integer, text); Type: PROCEDURE; Schema: public; Owner: postgres
---
-
-CREATE PROCEDURE public.proc_update_subject(IN p_subject_id integer, IN p_subject_name text, IN p_cabinet integer, IN p_subject_program text)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
-    AS $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM Subjects WHERE subject_id = p_subject_id) THEN
-        RAISE EXCEPTION 'Subject with ID % does not exist', p_subject_id;
-    END IF;
-
-    UPDATE Subjects
-    SET subject_name = COALESCE(p_subject_name, subject_name),
-        cabinet = COALESCE(p_cabinet, cabinet),
-        subject_program = COALESCE(p_subject_program, subject_program)
-    WHERE subject_id = p_subject_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Subjects', 'UPDATE', p_subject_id::TEXT, SESSION_USER, 'Updated subject ' || p_subject_id);
-END;
-$$;
-
-
-ALTER PROCEDURE public.proc_update_subject(IN p_subject_id integer, IN p_subject_name text, IN p_cabinet integer, IN p_subject_program text) OWNER TO postgres;
-
---
 -- Name: proc_update_teacher(integer, character varying, character varying, character varying, character varying, integer); Type: PROCEDURE; Schema: public; Owner: postgres
 --
 
 CREATE PROCEDURE public.proc_update_teacher(IN p_id integer, IN p_name character varying, IN p_surname character varying, IN p_patronym character varying, IN p_phone character varying, IN p_user_id integer)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE plpgsql
     AS $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM vws_teachers WHERE teacher_id = p_id
+        SELECT 1 FROM teacher WHERE teacher_id = p_id
     ) THEN
         RAISE EXCEPTION 'Teacher % does not exist', p_id
         USING ERRCODE = '22003';
@@ -2341,7 +1895,7 @@ BEGIN
     p_phone := NULLIF(trim(p_phone), '');
 
     IF p_user_id IS NOT NULL AND NOT EXISTS (
-        SELECT 1 FROM vws_users WHERE user_id = p_user_id
+        SELECT 1 FROM users WHERE user_id = p_user_id
     ) THEN
         RAISE EXCEPTION 'User % does not exist', p_user_id
         USING ERRCODE = '22003';
@@ -2355,9 +1909,6 @@ BEGIN
         teacher_phone    = COALESCE(p_phone, teacher_phone),
         teacher_user_id  = COALESCE(p_user_id, teacher_user_id)
     WHERE teacher_id = p_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Teacher', 'UPDATE', p_id::text, SESSION_USER, 'Updated teacher');
 END;
 $$;
 
@@ -2365,45 +1916,18 @@ $$;
 ALTER PROCEDURE public.proc_update_teacher(IN p_id integer, IN p_name character varying, IN p_surname character varying, IN p_patronym character varying, IN p_phone character varying, IN p_user_id integer) OWNER TO postgres;
 
 --
--- Name: proc_update_timetable(integer, character varying, character varying); Type: PROCEDURE; Schema: public; Owner: postgres
---
-
-CREATE PROCEDURE public.proc_update_timetable(IN p_timetable_id integer, IN p_timetable_name character varying, IN p_timetable_class character varying)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
-    AS $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM Timetable WHERE timetable_id = p_timetable_id) THEN
-        RAISE EXCEPTION 'Timetable with ID % does not exist', p_timetable_id;
-    END IF;
-
-    UPDATE Timetable
-    SET timetable_name = COALESCE(p_timetable_name, timetable_name),
-        timetable_class = COALESCE(p_timetable_class, timetable_class)
-    WHERE timetable_id = p_timetable_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Timetable', 'UPDATE', p_timetable_id::TEXT, SESSION_USER, 'Updated timetable ' || p_timetable_id);
-END;
-$$;
-
-
-ALTER PROCEDURE public.proc_update_timetable(IN p_timetable_id integer, IN p_timetable_name character varying, IN p_timetable_class character varying) OWNER TO postgres;
-
---
 -- Name: proc_update_user(integer, character varying, character varying, character varying); Type: PROCEDURE; Schema: public; Owner: postgres
 --
 
 CREATE PROCEDURE public.proc_update_user(IN p_id integer, IN p_username character varying DEFAULT NULL::character varying, IN p_email character varying DEFAULT NULL::character varying, IN p_password character varying DEFAULT NULL::character varying)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE plpgsql
     AS $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM vws_users WHERE user_id = p_id
+        SELECT 1 FROM users WHERE user_id = p_id
     ) THEN
         RAISE EXCEPTION 'User % does not exist', p_id
-        USING ERRCODE = 'P0002';
+        USING ERRCODE = '22003';
     END IF;
 
     p_username := NULLIF(trim(p_username), '');
@@ -2411,22 +1935,18 @@ BEGIN
     p_password := NULLIF(trim(p_password), '');
 
     IF p_username IS NOT NULL AND EXISTS (
-        SELECT 1 FROM vws_users WHERE username = p_username AND user_id <> p_id
+        SELECT 1 FROM users WHERE username = p_username AND user_id <> p_id
     ) THEN
         RAISE EXCEPTION 'Username % already exists', p_username
         USING ERRCODE = '23505';
     END IF;
 
     IF p_email IS NOT NULL AND EXISTS (
-        SELECT 1 FROM vws_users WHERE email = p_email AND user_id <> p_id
+        SELECT 1 FROM users WHERE email = p_email AND user_id <> p_id
     ) THEN
         RAISE EXCEPTION 'Email % already exists', p_email
         USING ERRCODE = '23505';
     END IF;
-
-    IF p_password IS NOT NULL THEN
-	    p_password := crypt(p_password, gen_salt('bf'));
-	END IF;
 
     UPDATE users
     SET
@@ -2434,9 +1954,6 @@ BEGIN
         email    = COALESCE(p_email, email),
         password = COALESCE(p_password, password)
     WHERE user_id = p_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Users', 'UPDATE', p_id::text, SESSION_USER, 'Updated user');
 END;
 $$;
 
@@ -2448,8 +1965,7 @@ ALTER PROCEDURE public.proc_update_user(IN p_id integer, IN p_username character
 --
 
 CREATE FUNCTION public.student_attendance_report(p_student_id integer, p_from date DEFAULT CURRENT_DATE, p_to date DEFAULT ((CURRENT_DATE + '7 days'::interval))::date) RETURNS TABLE(present integer, absent integer, present_percent numeric)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE plpgsql
     AS $$
 DECLARE
     total INT;
@@ -2488,17 +2004,30 @@ ALTER FUNCTION public.student_attendance_report(p_student_id integer, p_from dat
 -- Name: student_day_plan(integer, date); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE FUNCTION public.student_day_plan(p_student_id integer, p_date date) RETURNS TABLE(lesson character varying, mark smallint, homework text)
-    LANGUAGE sql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+CREATE FUNCTION public.student_day_plan(p_student_id integer, p_date date DEFAULT CURRENT_DATE) RETURNS TABLE(lesson_name character varying, mark smallint, homework text, lesson_date date, lesson_time time without time zone, subject character varying, teacher character varying, class character varying)
+    LANGUAGE plpgsql
     AS $$
-	SELECT l.lesson_name, sd.mark, h.homework_desc
-	FROM Students s
-	JOIN Lessons l ON l.lesson_class = s.student_class
-	LEFT JOIN StudentData sd ON sd.student_id = s.student_id
-	LEFT JOIN Homework h ON h.homework_class = s.student_class
-	WHERE s.student_id = p_student_id
-	AND l.lesson_date = p_date;
+BEGIN
+  RETURN QUERY
+  SELECT
+    COALESCE(l.lesson_name, l.subject, '') AS lesson_name,
+    sd.mark,
+    h.homework_desc,
+    l.lesson_date,
+    l.lesson_time,
+    l.subject,
+    t.teacher_name AS teacher,
+    s.student_class AS class
+  FROM students s
+  JOIN lessons l ON l.lesson_class = s.student_class
+  LEFT JOIN studentdata sd ON sd.student_id = s.student_id AND sd.lesson_id = l.lesson_id
+  LEFT JOIN homework h ON h.homework_class = s.student_class AND h.homework_date = l.lesson_date
+  LEFT JOIN teachers t ON t.teacher_id = l.teacher_id
+  WHERE s.student_id = p_student_id
+    AND l.lesson_date >= p_date
+  ORDER BY l.lesson_date, l.lesson_time;
+  RETURN;
+END;
 $$;
 
 
@@ -2509,8 +2038,7 @@ ALTER FUNCTION public.student_day_plan(p_student_id integer, p_date date) OWNER 
 --
 
 CREATE FUNCTION public.translit_uk_to_lat(p_text text) RETURNS text
-    LANGUAGE plpgsql IMMUTABLE SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    LANGUAGE plpgsql IMMUTABLE
     AS $$
 DECLARE
     t TEXT;
@@ -3123,73 +2651,6 @@ CREATE VIEW public.vw_homework_tomorrow AS
 ALTER VIEW public.vw_homework_tomorrow OWNER TO postgres;
 
 --
--- Name: vw_student_perfomance_matrix; Type: VIEW; Schema: public; Owner: postgres
---
-
-CREATE VIEW public.vw_student_perfomance_matrix AS
- WITH academicstats AS (
-         SELECT sd.student_id,
-            count(sd.mark) AS count_marks,
-            round(avg(sd.mark), 2) AS avg_grade,
-            count(
-                CASE
-                    WHEN ((sd.mark >= 1) AND (sd.mark <= 3)) THEN 1
-                    ELSE NULL::integer
-                END) AS count_failures,
-            max(l.lesson_date) AS last_graded_date
-           FROM (public.studentdata sd
-             JOIN public.lessons l ON ((sd.lesson = l.lesson_id)))
-          WHERE (sd.mark IS NOT NULL)
-          GROUP BY sd.student_id
-        ), attendancestats AS (
-         SELECT sd.student_id,
-            count(*) AS total_entries,
-            count(
-                CASE
-                    WHEN (sd.status = ANY (ARRAY['Не присутній'::public.journal_status_enum, 'Н'::public.journal_status_enum])) THEN 1
-                    ELSE NULL::integer
-                END) AS count_absences,
-            max(l.lesson_date) AS last_seen_date
-           FROM (public.studentdata sd
-             JOIN public.lessons l ON ((sd.lesson = l.lesson_id)))
-          GROUP BY sd.student_id
-        )
- SELECT s.student_id,
-    (((((s.student_name)::text || ' '::text) || (s.student_surname)::text) || ' '::text) || (s.student_patronym)::text) AS student_full_name,
-    s.student_class,
-    COALESCE(acad.avg_grade, (0)::numeric) AS gpa,
-    COALESCE(acad.count_marks, (0)::bigint) AS total_marks_received,
-    COALESCE(acad.count_failures, (0)::bigint) AS total_failed_marks,
-    COALESCE(att.count_absences, (0)::bigint) AS total_absences,
-        CASE
-            WHEN (COALESCE(att.total_entries, (0)::bigint) = 0) THEN (0)::numeric
-            ELSE round((((COALESCE(att.count_absences, (0)::bigint))::numeric / (att.total_entries)::numeric) * (100)::numeric), 1)
-        END AS absence_percentage,
-    GREATEST(acad.last_graded_date, att.last_seen_date) AS last_activity_date,
-        CASE
-            WHEN (GREATEST(acad.last_graded_date, att.last_seen_date) IS NOT NULL) THEN ((CURRENT_DATE)::timestamp without time zone - GREATEST(acad.last_graded_date, att.last_seen_date))
-            ELSE NULL::interval
-        END AS days_since_last_activity,
-        CASE
-            WHEN (((COALESCE(acad.avg_grade, (0)::numeric) > (0)::numeric) AND (acad.avg_grade < (4)::numeric)) OR (
-            CASE
-                WHEN (att.total_entries > 0) THEN ((att.count_absences)::numeric / (att.total_entries)::numeric)
-                ELSE (0)::numeric
-            END > 0.30)) THEN 'В зоні ризику'::text
-            WHEN ((acad.avg_grade >= (10)::numeric) AND (COALESCE(att.count_absences, (0)::bigint) < 3)) THEN 'Відмінник'::text
-            WHEN (acad.avg_grade >= (7)::numeric) THEN 'Хорошист'::text
-            WHEN ((acad.avg_grade IS NULL) AND (att.total_entries IS NULL)) THEN 'Новий/Без активності'::text
-            ELSE 'Середній рівень'::text
-        END AS student_status_tier
-   FROM ((public.students s
-     LEFT JOIN academicstats acad ON ((s.student_id = acad.student_id)))
-     LEFT JOIN attendancestats att ON ((s.student_id = att.student_id)))
-  ORDER BY s.student_class, COALESCE(acad.avg_grade, (0)::numeric) DESC;
-
-
-ALTER VIEW public.vw_student_perfomance_matrix OWNER TO postgres;
-
---
 -- Name: vw_student_ranking; Type: VIEW; Schema: public; Owner: postgres
 --
 
@@ -3233,44 +2694,6 @@ CREATE VIEW public.vw_students_by_class AS
 
 
 ALTER VIEW public.vw_students_by_class OWNER TO postgres;
-
---
--- Name: vw_teacher_analytics; Type: VIEW; Schema: public; Owner: postgres
---
-
-CREATE VIEW public.vw_teacher_analytics AS
- WITH lessoncounts AS (
-         SELECT lessons.lesson_teacher,
-            count(*) AS lessons_conducted,
-            max(lessons.lesson_date) AS last_lesson
-           FROM public.lessons
-          GROUP BY lessons.lesson_teacher
-        ), gradingstats AS (
-         SELECT l.lesson_teacher,
-            count(sd.mark) AS marks_given,
-            round(avg(sd.mark), 2) AS avg_mark_given
-           FROM (public.studentdata sd
-             JOIN public.lessons l ON ((sd.lesson = l.lesson_id)))
-          GROUP BY l.lesson_teacher
-        )
- SELECT t.teacher_surname,
-    t.teacher_name,
-    t.teacher_patronym,
-    sub.subject_name,
-    COALESCE(lc.lessons_conducted, (0)::bigint) AS total_lessons,
-    COALESCE(gs.marks_given, (0)::bigint) AS total_marks_assigned,
-    gs.avg_mark_given AS strictness_factor,
-    ((CURRENT_DATE)::timestamp without time zone - lc.last_lesson) AS days_since_last_lesson
-   FROM (((public.teacher t
-     LEFT JOIN lessoncounts lc ON ((t.teacher_id = lc.lesson_teacher)))
-     LEFT JOIN gradingstats gs ON ((t.teacher_id = gs.lesson_teacher)))
-     LEFT JOIN public.subjects sub ON ((t.teacher_id = ( SELECT lessons.lesson_teacher
-           FROM public.lessons
-          WHERE (lessons.lesson_teacher = t.teacher_id)
-         LIMIT 1))));
-
-
-ALTER VIEW public.vw_teacher_analytics OWNER TO postgres;
 
 --
 -- Name: vw_teacher_class_students; Type: VIEW; Schema: public; Owner: postgres
@@ -3329,352 +2752,6 @@ CREATE VIEW public.vw_view_timetable_week AS
 
 
 ALTER VIEW public.vw_view_timetable_week OWNER TO postgres;
-
---
--- Name: vws_class_schedule; Type: VIEW; Schema: public; Owner: postgres
---
-
-CREATE VIEW public.vws_class_schedule AS
- SELECT t.timetable_name,
-    t.timetable_class,
-    d.day_weekday,
-    d.day_time,
-    s.subject_name,
-    s.cabinet,
-    te.teacher_surname AS main_teacher
-   FROM ((((public.timetable t
-     JOIN public.days d ON ((t.timetable_id = d.day_timetable)))
-     JOIN public.subjects s ON ((d.day_subject = s.subject_id)))
-     LEFT JOIN public.class c ON (((t.timetable_class)::text = (c.class_name)::text)))
-     LEFT JOIN public.teacher te ON ((c.class_mainteacher = te.teacher_id)))
-  ORDER BY t.timetable_class,
-        CASE d.day_weekday
-            WHEN 'Понеділок'::text THEN 1
-            WHEN 'Вівторок'::text THEN 2
-            WHEN 'Середа'::text THEN 3
-            WHEN 'Четвер'::text THEN 4
-            WHEN 'П’ятниця'::text THEN 5
-            ELSE NULL::integer
-        END, d.day_time;
-
-
-ALTER VIEW public.vws_class_schedule OWNER TO postgres;
-
---
--- Name: vws_classes; Type: VIEW; Schema: public; Owner: postgres
---
-
-CREATE VIEW public.vws_classes AS
- SELECT class_name,
-    class_journal_id,
-    class_mainteacher
-   FROM public.class;
-
-
-ALTER VIEW public.vws_classes OWNER TO postgres;
-
---
--- Name: vws_days; Type: VIEW; Schema: public; Owner: postgres
---
-
-CREATE VIEW public.vws_days AS
- SELECT day_id,
-    day_subject,
-    day_time,
-    day_weekday,
-    day_timetable
-   FROM public.days;
-
-
-ALTER VIEW public.vws_days OWNER TO postgres;
-
---
--- Name: vws_full_journal; Type: VIEW; Schema: public; Owner: postgres
---
-
-CREATE VIEW public.vws_full_journal AS
- SELECT sd.data_id,
-    j.journal_name,
-    cl.class_name,
-    sub.subject_name,
-    l.lesson_date,
-    l.lesson_name,
-    s.student_id,
-    (((((s.student_name)::text || ' '::text) || (s.student_surname)::text) || ' '::text) || (s.student_patronym)::text) AS student_full_name,
-    sd.mark,
-    sd.status,
-    sd.note,
-    (((t.teacher_name)::text || ' '::text) || (t.teacher_surname)::text) AS teacher
-   FROM ((((((public.studentdata sd
-     JOIN public.journal j ON ((sd.journal_id = j.journal_id)))
-     JOIN public.lessons l ON ((sd.lesson = l.lesson_id)))
-     JOIN public.subjects sub ON ((l.lesson_subject = sub.subject_id)))
-     JOIN public.students s ON ((sd.student_id = s.student_id)))
-     JOIN public.class cl ON (((s.student_class)::text = (cl.class_name)::text)))
-     JOIN public.teacher t ON ((l.lesson_teacher = t.teacher_id)));
-
-
-ALTER VIEW public.vws_full_journal OWNER TO postgres;
-
---
--- Name: vws_homeworks; Type: VIEW; Schema: public; Owner: postgres
---
-
-CREATE VIEW public.vws_homeworks AS
- SELECT homework_id,
-    homework_name,
-    homework_teacher,
-    homework_lesson,
-    homework_duedate,
-    homework_created_at,
-    homework_desc,
-    homework_class
-   FROM public.homework;
-
-
-ALTER VIEW public.vws_homeworks OWNER TO postgres;
-
---
--- Name: vws_journals; Type: VIEW; Schema: public; Owner: postgres
---
-
-CREATE VIEW public.vws_journals AS
- SELECT journal_id,
-    journal_teacher,
-    journal_name
-   FROM public.journal;
-
-
-ALTER VIEW public.vws_journals OWNER TO postgres;
-
---
--- Name: vws_lessons; Type: VIEW; Schema: public; Owner: postgres
---
-
-CREATE VIEW public.vws_lessons AS
- SELECT lesson_id,
-    lesson_name,
-    lesson_class,
-    lesson_subject,
-    lesson_material,
-    lesson_teacher,
-    lesson_date
-   FROM public.lessons;
-
-
-ALTER VIEW public.vws_lessons OWNER TO postgres;
-
---
--- Name: vws_materials; Type: VIEW; Schema: public; Owner: postgres
---
-
-CREATE VIEW public.vws_materials AS
- SELECT material_id,
-    material_name,
-    material_desc,
-    material_link
-   FROM public.material;
-
-
-ALTER VIEW public.vws_materials OWNER TO postgres;
-
---
--- Name: vws_parents; Type: VIEW; Schema: public; Owner: postgres
---
-
-CREATE VIEW public.vws_parents AS
- SELECT parent_id,
-    parent_name,
-    parent_surname,
-    parent_patronym,
-    parent_phone,
-    parent_user_id
-   FROM public.parents;
-
-
-ALTER VIEW public.vws_parents OWNER TO postgres;
-
---
--- Name: vws_roles; Type: VIEW; Schema: public; Owner: postgres
---
-
-CREATE VIEW public.vws_roles AS
- SELECT role_id,
-    role_name,
-    role_desc
-   FROM public.roles;
-
-
-ALTER VIEW public.vws_roles OWNER TO postgres;
-
---
--- Name: vws_student_data; Type: VIEW; Schema: public; Owner: postgres
---
-
-CREATE VIEW public.vws_student_data AS
- SELECT data_id,
-    journal_id,
-    student_id,
-    lesson,
-    mark,
-    status,
-    note,
-    created_at
-   FROM public.studentdata;
-
-
-ALTER VIEW public.vws_student_data OWNER TO postgres;
-
---
--- Name: vws_student_parents; Type: VIEW; Schema: public; Owner: postgres
---
-
-CREATE VIEW public.vws_student_parents AS
- SELECT student_id_ref,
-    parent_id_ref
-   FROM public.studentparent;
-
-
-ALTER VIEW public.vws_student_parents OWNER TO postgres;
-
---
--- Name: vws_student_profile; Type: VIEW; Schema: public; Owner: postgres
---
-
-CREATE VIEW public.vws_student_profile AS
- SELECT s.student_id,
-    s.student_name,
-    s.student_surname,
-    s.student_patronym,
-    s.student_class,
-    s.student_phone,
-    u.email,
-    u.username
-   FROM (public.students s
-     LEFT JOIN public.users u ON ((s.student_user_id = u.user_id)));
-
-
-ALTER VIEW public.vws_student_profile OWNER TO postgres;
-
---
--- Name: vws_students; Type: VIEW; Schema: public; Owner: postgres
---
-
-CREATE VIEW public.vws_students AS
- SELECT student_id,
-    student_name,
-    student_surname,
-    student_patronym,
-    student_phone,
-    student_user_id,
-    student_class
-   FROM public.students;
-
-
-ALTER VIEW public.vws_students OWNER TO postgres;
-
---
--- Name: vws_subjects; Type: VIEW; Schema: public; Owner: postgres
---
-
-CREATE VIEW public.vws_subjects AS
- SELECT subject_id,
-    subject_name,
-    subject_program,
-    cabinet
-   FROM public.subjects;
-
-
-ALTER VIEW public.vws_subjects OWNER TO postgres;
-
---
--- Name: vws_teacher_profile; Type: VIEW; Schema: public; Owner: postgres
---
-
-CREATE VIEW public.vws_teacher_profile AS
-SELECT
-    NULL::integer AS teacher_id,
-    NULL::character varying(50) AS teacher_name,
-    NULL::character varying(50) AS teacher_surname,
-    NULL::character varying(50) AS teacher_patronym,
-    NULL::character varying(20) AS teacher_phone,
-    NULL::character varying(60) AS email,
-    NULL::bigint AS classes_managed;
-
-
-ALTER VIEW public.vws_teacher_profile OWNER TO postgres;
-
---
--- Name: vws_teachers; Type: VIEW; Schema: public; Owner: postgres
---
-
-CREATE VIEW public.vws_teachers AS
- SELECT teacher_id,
-    teacher_name,
-    teacher_surname,
-    teacher_patronym,
-    teacher_phone,
-    teacher_user_id
-   FROM public.teacher;
-
-
-ALTER VIEW public.vws_teachers OWNER TO postgres;
-
---
--- Name: vws_timetables; Type: VIEW; Schema: public; Owner: postgres
---
-
-CREATE VIEW public.vws_timetables AS
- SELECT timetable_id,
-    timetable_name,
-    timetable_class
-   FROM public.timetable;
-
-
-ALTER VIEW public.vws_timetables OWNER TO postgres;
-
---
--- Name: vws_user_auth_info; Type: VIEW; Schema: public; Owner: postgres
---
-
-CREATE VIEW public.vws_user_auth_info AS
- SELECT u.user_id,
-    u.username,
-    u.email,
-    r.role_name,
-    r.role_desc
-   FROM ((public.users u
-     JOIN public.userrole ur ON ((u.user_id = ur.user_id)))
-     JOIN public.roles r ON ((ur.role_id = r.role_id)));
-
-
-ALTER VIEW public.vws_user_auth_info OWNER TO postgres;
-
---
--- Name: vws_user_roles; Type: VIEW; Schema: public; Owner: postgres
---
-
-CREATE VIEW public.vws_user_roles AS
- SELECT user_id,
-    role_id
-   FROM public.userrole;
-
-
-ALTER VIEW public.vws_user_roles OWNER TO postgres;
-
---
--- Name: vws_users; Type: VIEW; Schema: public; Owner: postgres
---
-
-CREATE VIEW public.vws_users AS
- SELECT user_id,
-    username,
-    email,
-    password
-   FROM public.users;
-
-
-ALTER VIEW public.vws_users OWNER TO postgres;
 
 --
 -- Data for Name: class; Type: TABLE DATA; Schema: public; Owner: postgres
@@ -9688,24 +8765,6 @@ CREATE OR REPLACE VIEW public.vw_student_ranking AS
 
 
 --
--- Name: vws_teacher_profile _RETURN; Type: RULE; Schema: public; Owner: postgres
---
-
-CREATE OR REPLACE VIEW public.vws_teacher_profile AS
- SELECT t.teacher_id,
-    t.teacher_name,
-    t.teacher_surname,
-    t.teacher_patronym,
-    t.teacher_phone,
-    u.email,
-    count(c.class_name) AS classes_managed
-   FROM ((public.teacher t
-     LEFT JOIN public.users u ON ((t.teacher_user_id = u.user_id)))
-     LEFT JOIN public.class c ON ((t.teacher_id = c.class_mainteacher)))
-  GROUP BY t.teacher_id, u.email;
-
-
---
 -- Name: lessons check_timetable_conflict; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
@@ -9717,13 +8776,6 @@ CREATE TRIGGER check_timetable_conflict BEFORE INSERT ON public.lessons FOR EACH
 --
 
 CREATE TRIGGER prevent_fast_double_mark BEFORE INSERT ON public.studentdata FOR EACH ROW EXECUTE FUNCTION public.trg_prevent_fast_double_mark();
-
-
---
--- Name: studentdata trg_update_student_status; Type: TRIGGER; Schema: public; Owner: postgres
---
-
-CREATE TRIGGER trg_update_student_status AFTER INSERT OR UPDATE ON public.studentdata FOR EACH ROW EXECUTE FUNCTION public.calculate_student_status();
 
 
 --
@@ -9945,446 +8997,255 @@ ALTER TABLE ONLY public.userrole
 -- Name: SCHEMA public; Type: ACL; Schema: -; Owner: pg_database_owner
 --
 
-GRANT USAGE ON SCHEMA public TO guest;
+GRANT USAGE ON SCHEMA public TO guest_user;
 
 
 --
--- Name: FUNCTION armor(bytea); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION login_user(p_login text, p_password text); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.armor(bytea) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.armor(bytea) TO admin;
-GRANT ALL ON FUNCTION public.armor(bytea) TO sadmin;
+GRANT ALL ON FUNCTION public.login_user(p_login text, p_password text) TO guest_user;
 
 
 --
--- Name: FUNCTION armor(bytea, text[], text[]); Type: ACL; Schema: public; Owner: postgres
+-- Name: PROCEDURE proc_assign_role_to_user(IN p_user_id integer, IN p_role_id integer); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.armor(bytea, text[], text[]) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.armor(bytea, text[], text[]) TO admin;
-GRANT ALL ON FUNCTION public.armor(bytea, text[], text[]) TO sadmin;
+GRANT ALL ON PROCEDURE public.proc_assign_role_to_user(IN p_user_id integer, IN p_role_id integer) TO admin;
+GRANT ALL ON PROCEDURE public.proc_assign_role_to_user(IN p_user_id integer, IN p_role_id integer) TO sadmin;
 
 
 --
--- Name: FUNCTION crypt(text, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: PROCEDURE proc_assign_student_parent(IN p_student_id integer, IN p_parent_id integer); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.crypt(text, text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.crypt(text, text) TO admin;
-GRANT ALL ON FUNCTION public.crypt(text, text) TO sadmin;
+GRANT ALL ON PROCEDURE public.proc_assign_student_parent(IN p_student_id integer, IN p_parent_id integer) TO admin;
+GRANT ALL ON PROCEDURE public.proc_assign_student_parent(IN p_student_id integer, IN p_parent_id integer) TO sadmin;
 
 
 --
--- Name: FUNCTION dearmor(text); Type: ACL; Schema: public; Owner: postgres
+-- Name: PROCEDURE proc_create_homework(INOUT p_name character varying, IN p_teacher integer, IN p_lesson integer, INOUT p_duedate date, INOUT p_desc text, IN p_class character varying, OUT new_homework_id integer); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.dearmor(text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.dearmor(text) TO admin;
-GRANT ALL ON FUNCTION public.dearmor(text) TO sadmin;
+GRANT ALL ON PROCEDURE public.proc_create_homework(INOUT p_name character varying, IN p_teacher integer, IN p_lesson integer, INOUT p_duedate date, INOUT p_desc text, IN p_class character varying, OUT new_homework_id integer) TO teacher;
+GRANT ALL ON PROCEDURE public.proc_create_homework(INOUT p_name character varying, IN p_teacher integer, IN p_lesson integer, INOUT p_duedate date, INOUT p_desc text, IN p_class character varying, OUT new_homework_id integer) TO moderator;
+GRANT ALL ON PROCEDURE public.proc_create_homework(INOUT p_name character varying, IN p_teacher integer, IN p_lesson integer, INOUT p_duedate date, INOUT p_desc text, IN p_class character varying, OUT new_homework_id integer) TO admin;
+GRANT ALL ON PROCEDURE public.proc_create_homework(INOUT p_name character varying, IN p_teacher integer, IN p_lesson integer, INOUT p_duedate date, INOUT p_desc text, IN p_class character varying, OUT new_homework_id integer) TO sadmin;
 
 
 --
--- Name: FUNCTION decrypt(bytea, bytea, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: PROCEDURE proc_create_lesson(INOUT p_name character varying, IN p_class character varying, IN p_subject integer, INOUT p_material integer, IN p_teacher integer, INOUT p_date date, OUT new_lesson_id integer); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.decrypt(bytea, bytea, text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.decrypt(bytea, bytea, text) TO admin;
-GRANT ALL ON FUNCTION public.decrypt(bytea, bytea, text) TO sadmin;
+GRANT ALL ON PROCEDURE public.proc_create_lesson(INOUT p_name character varying, IN p_class character varying, IN p_subject integer, INOUT p_material integer, IN p_teacher integer, INOUT p_date date, OUT new_lesson_id integer) TO moderator;
+GRANT ALL ON PROCEDURE public.proc_create_lesson(INOUT p_name character varying, IN p_class character varying, IN p_subject integer, INOUT p_material integer, IN p_teacher integer, INOUT p_date date, OUT new_lesson_id integer) TO admin;
+GRANT ALL ON PROCEDURE public.proc_create_lesson(INOUT p_name character varying, IN p_class character varying, IN p_subject integer, INOUT p_material integer, IN p_teacher integer, INOUT p_date date, OUT new_lesson_id integer) TO sadmin;
 
 
 --
--- Name: FUNCTION decrypt_iv(bytea, bytea, bytea, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: PROCEDURE proc_create_material(IN p_name character varying, IN p_desc text, IN p_link text, OUT new_material_id integer); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.decrypt_iv(bytea, bytea, bytea, text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.decrypt_iv(bytea, bytea, bytea, text) TO admin;
-GRANT ALL ON FUNCTION public.decrypt_iv(bytea, bytea, bytea, text) TO sadmin;
+GRANT ALL ON PROCEDURE public.proc_create_material(IN p_name character varying, IN p_desc text, IN p_link text, OUT new_material_id integer) TO moderator;
+GRANT ALL ON PROCEDURE public.proc_create_material(IN p_name character varying, IN p_desc text, IN p_link text, OUT new_material_id integer) TO admin;
+GRANT ALL ON PROCEDURE public.proc_create_material(IN p_name character varying, IN p_desc text, IN p_link text, OUT new_material_id integer) TO sadmin;
 
 
 --
--- Name: FUNCTION digest(bytea, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: PROCEDURE proc_create_parent(IN p_name character varying, IN p_surname character varying, IN p_patronym character varying, IN p_phone character varying, IN p_user_id integer, OUT new_parent_id integer, OUT generated_password text); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.digest(bytea, text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.digest(bytea, text) TO admin;
-GRANT ALL ON FUNCTION public.digest(bytea, text) TO sadmin;
+GRANT ALL ON PROCEDURE public.proc_create_parent(IN p_name character varying, IN p_surname character varying, IN p_patronym character varying, IN p_phone character varying, IN p_user_id integer, OUT new_parent_id integer, OUT generated_password text) TO admin;
+GRANT ALL ON PROCEDURE public.proc_create_parent(IN p_name character varying, IN p_surname character varying, IN p_patronym character varying, IN p_phone character varying, IN p_user_id integer, OUT new_parent_id integer, OUT generated_password text) TO sadmin;
 
 
 --
--- Name: FUNCTION digest(text, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: PROCEDURE proc_create_student(IN p_name character varying, IN p_surname character varying, IN p_patronym character varying, IN p_phone character varying, IN p_user_id integer, IN p_class character varying, OUT new_student_id integer, OUT generated_password text); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.digest(text, text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.digest(text, text) TO admin;
-GRANT ALL ON FUNCTION public.digest(text, text) TO sadmin;
+GRANT ALL ON PROCEDURE public.proc_create_student(IN p_name character varying, IN p_surname character varying, IN p_patronym character varying, IN p_phone character varying, IN p_user_id integer, IN p_class character varying, OUT new_student_id integer, OUT generated_password text) TO admin;
+GRANT ALL ON PROCEDURE public.proc_create_student(IN p_name character varying, IN p_surname character varying, IN p_patronym character varying, IN p_phone character varying, IN p_user_id integer, IN p_class character varying, OUT new_student_id integer, OUT generated_password text) TO sadmin;
 
 
 --
--- Name: FUNCTION encrypt(bytea, bytea, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: PROCEDURE proc_create_studentdata(IN p_journal_id integer, IN p_student_id integer, IN p_lesson integer, IN p_mark smallint, IN p_status public.journal_status_enum, INOUT p_note text, OUT new_data_id integer); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.encrypt(bytea, bytea, text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.encrypt(bytea, bytea, text) TO admin;
-GRANT ALL ON FUNCTION public.encrypt(bytea, bytea, text) TO sadmin;
+GRANT ALL ON PROCEDURE public.proc_create_studentdata(IN p_journal_id integer, IN p_student_id integer, IN p_lesson integer, IN p_mark smallint, IN p_status public.journal_status_enum, INOUT p_note text, OUT new_data_id integer) TO teacher;
+GRANT ALL ON PROCEDURE public.proc_create_studentdata(IN p_journal_id integer, IN p_student_id integer, IN p_lesson integer, IN p_mark smallint, IN p_status public.journal_status_enum, INOUT p_note text, OUT new_data_id integer) TO starosta;
+GRANT ALL ON PROCEDURE public.proc_create_studentdata(IN p_journal_id integer, IN p_student_id integer, IN p_lesson integer, IN p_mark smallint, IN p_status public.journal_status_enum, INOUT p_note text, OUT new_data_id integer) TO moderator;
+GRANT ALL ON PROCEDURE public.proc_create_studentdata(IN p_journal_id integer, IN p_student_id integer, IN p_lesson integer, IN p_mark smallint, IN p_status public.journal_status_enum, INOUT p_note text, OUT new_data_id integer) TO admin;
+GRANT ALL ON PROCEDURE public.proc_create_studentdata(IN p_journal_id integer, IN p_student_id integer, IN p_lesson integer, IN p_mark smallint, IN p_status public.journal_status_enum, INOUT p_note text, OUT new_data_id integer) TO sadmin;
 
 
 --
--- Name: FUNCTION encrypt_iv(bytea, bytea, bytea, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: PROCEDURE proc_create_teacher(IN p_name character varying, IN p_surname character varying, IN p_patronym character varying, IN p_phone character varying, IN p_user_id integer, OUT new_teacher_id integer, OUT generated_password text); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.encrypt_iv(bytea, bytea, bytea, text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.encrypt_iv(bytea, bytea, bytea, text) TO admin;
-GRANT ALL ON FUNCTION public.encrypt_iv(bytea, bytea, bytea, text) TO sadmin;
+GRANT ALL ON PROCEDURE public.proc_create_teacher(IN p_name character varying, IN p_surname character varying, IN p_patronym character varying, IN p_phone character varying, IN p_user_id integer, OUT new_teacher_id integer, OUT generated_password text) TO admin;
+GRANT ALL ON PROCEDURE public.proc_create_teacher(IN p_name character varying, IN p_surname character varying, IN p_patronym character varying, IN p_phone character varying, IN p_user_id integer, OUT new_teacher_id integer, OUT generated_password text) TO sadmin;
 
 
 --
--- Name: FUNCTION fips_mode(); Type: ACL; Schema: public; Owner: postgres
+-- Name: PROCEDURE proc_create_user(IN p_username character varying, IN p_email character varying, IN p_password character varying, OUT new_user_id integer); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.fips_mode() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.fips_mode() TO admin;
-GRANT ALL ON FUNCTION public.fips_mode() TO sadmin;
+GRANT ALL ON PROCEDURE public.proc_create_user(IN p_username character varying, IN p_email character varying, IN p_password character varying, OUT new_user_id integer) TO admin;
+GRANT ALL ON PROCEDURE public.proc_create_user(IN p_username character varying, IN p_email character varying, IN p_password character varying, OUT new_user_id integer) TO sadmin;
 
 
 --
--- Name: FUNCTION gen_random_bytes(integer); Type: ACL; Schema: public; Owner: postgres
+-- Name: PROCEDURE proc_delete_day(IN p_id integer); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.gen_random_bytes(integer) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.gen_random_bytes(integer) TO admin;
-GRANT ALL ON FUNCTION public.gen_random_bytes(integer) TO sadmin;
+GRANT ALL ON PROCEDURE public.proc_delete_day(IN p_id integer) TO admin;
+GRANT ALL ON PROCEDURE public.proc_delete_day(IN p_id integer) TO sadmin;
 
 
 --
--- Name: FUNCTION gen_random_uuid(); Type: ACL; Schema: public; Owner: postgres
+-- Name: PROCEDURE proc_delete_homework(IN p_id integer); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.gen_random_uuid() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.gen_random_uuid() TO admin;
-GRANT ALL ON FUNCTION public.gen_random_uuid() TO sadmin;
+GRANT ALL ON PROCEDURE public.proc_delete_homework(IN p_id integer) TO teacher;
+GRANT ALL ON PROCEDURE public.proc_delete_homework(IN p_id integer) TO moderator;
+GRANT ALL ON PROCEDURE public.proc_delete_homework(IN p_id integer) TO admin;
+GRANT ALL ON PROCEDURE public.proc_delete_homework(IN p_id integer) TO sadmin;
 
 
 --
--- Name: FUNCTION gen_salt(text); Type: ACL; Schema: public; Owner: postgres
+-- Name: PROCEDURE proc_delete_lesson(IN p_id integer); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.gen_salt(text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.gen_salt(text) TO admin;
-GRANT ALL ON FUNCTION public.gen_salt(text) TO sadmin;
+GRANT ALL ON PROCEDURE public.proc_delete_lesson(IN p_id integer) TO moderator;
+GRANT ALL ON PROCEDURE public.proc_delete_lesson(IN p_id integer) TO admin;
+GRANT ALL ON PROCEDURE public.proc_delete_lesson(IN p_id integer) TO sadmin;
 
 
 --
--- Name: FUNCTION gen_salt(text, integer); Type: ACL; Schema: public; Owner: postgres
+-- Name: PROCEDURE proc_delete_parent(IN p_id integer); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.gen_salt(text, integer) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.gen_salt(text, integer) TO admin;
-GRANT ALL ON FUNCTION public.gen_salt(text, integer) TO sadmin;
+GRANT ALL ON PROCEDURE public.proc_delete_parent(IN p_id integer) TO admin;
+GRANT ALL ON PROCEDURE public.proc_delete_parent(IN p_id integer) TO sadmin;
 
 
 --
--- Name: FUNCTION get_homework_by_createdate(p_class character varying, p_date date); Type: ACL; Schema: public; Owner: postgres
+-- Name: PROCEDURE proc_delete_student(IN p_id integer); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.get_homework_by_createdate(p_class character varying, p_date date) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.get_homework_by_createdate(p_class character varying, p_date date) TO student;
-GRANT ALL ON FUNCTION public.get_homework_by_createdate(p_class character varying, p_date date) TO parent;
-GRANT ALL ON FUNCTION public.get_homework_by_createdate(p_class character varying, p_date date) TO teacher;
-GRANT ALL ON FUNCTION public.get_homework_by_createdate(p_class character varying, p_date date) TO admin;
-GRANT ALL ON FUNCTION public.get_homework_by_createdate(p_class character varying, p_date date) TO sadmin;
+GRANT ALL ON PROCEDURE public.proc_delete_student(IN p_id integer) TO admin;
+GRANT ALL ON PROCEDURE public.proc_delete_student(IN p_id integer) TO sadmin;
 
 
 --
--- Name: FUNCTION get_homework_by_duedate(p_class character varying, p_date date); Type: ACL; Schema: public; Owner: postgres
+-- Name: PROCEDURE proc_delete_studentdata(IN p_id integer); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.get_homework_by_duedate(p_class character varying, p_date date) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.get_homework_by_duedate(p_class character varying, p_date date) TO student;
-GRANT ALL ON FUNCTION public.get_homework_by_duedate(p_class character varying, p_date date) TO parent;
-GRANT ALL ON FUNCTION public.get_homework_by_duedate(p_class character varying, p_date date) TO teacher;
-GRANT ALL ON FUNCTION public.get_homework_by_duedate(p_class character varying, p_date date) TO admin;
-GRANT ALL ON FUNCTION public.get_homework_by_duedate(p_class character varying, p_date date) TO sadmin;
+GRANT ALL ON PROCEDURE public.proc_delete_studentdata(IN p_id integer) TO admin;
+GRANT ALL ON PROCEDURE public.proc_delete_studentdata(IN p_id integer) TO sadmin;
 
 
 --
--- Name: FUNCTION get_timetable_id_by_student_id(p_student_id integer); Type: ACL; Schema: public; Owner: postgres
+-- Name: PROCEDURE proc_delete_user(IN p_id integer); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.get_timetable_id_by_student_id(p_student_id integer) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.get_timetable_id_by_student_id(p_student_id integer) TO student;
-GRANT ALL ON FUNCTION public.get_timetable_id_by_student_id(p_student_id integer) TO parent;
-GRANT ALL ON FUNCTION public.get_timetable_id_by_student_id(p_student_id integer) TO admin;
-GRANT ALL ON FUNCTION public.get_timetable_id_by_student_id(p_student_id integer) TO sadmin;
+GRANT ALL ON PROCEDURE public.proc_delete_user(IN p_id integer) TO admin;
+GRANT ALL ON PROCEDURE public.proc_delete_user(IN p_id integer) TO sadmin;
 
 
 --
--- Name: FUNCTION hmac(bytea, bytea, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: PROCEDURE proc_remove_role_from_user(IN p_user_id integer, IN p_role_id integer); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.hmac(bytea, bytea, text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.hmac(bytea, bytea, text) TO admin;
-GRANT ALL ON FUNCTION public.hmac(bytea, bytea, text) TO sadmin;
+GRANT ALL ON PROCEDURE public.proc_remove_role_from_user(IN p_user_id integer, IN p_role_id integer) TO admin;
+GRANT ALL ON PROCEDURE public.proc_remove_role_from_user(IN p_user_id integer, IN p_role_id integer) TO sadmin;
 
 
 --
--- Name: FUNCTION hmac(text, text, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: PROCEDURE proc_reset_user_password(IN p_user_id integer, IN p_new_password character varying); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.hmac(text, text, text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.hmac(text, text, text) TO admin;
-GRANT ALL ON FUNCTION public.hmac(text, text, text) TO sadmin;
+GRANT ALL ON PROCEDURE public.proc_reset_user_password(IN p_user_id integer, IN p_new_password character varying) TO admin;
+GRANT ALL ON PROCEDURE public.proc_reset_user_password(IN p_user_id integer, IN p_new_password character varying) TO sadmin;
 
 
 --
--- Name: FUNCTION pgp_armor_headers(text, OUT key text, OUT value text); Type: ACL; Schema: public; Owner: postgres
+-- Name: PROCEDURE proc_unassign_student_parent(IN p_student_id integer, IN p_parent_id integer); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.pgp_armor_headers(text, OUT key text, OUT value text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.pgp_armor_headers(text, OUT key text, OUT value text) TO admin;
-GRANT ALL ON FUNCTION public.pgp_armor_headers(text, OUT key text, OUT value text) TO sadmin;
+GRANT ALL ON PROCEDURE public.proc_unassign_student_parent(IN p_student_id integer, IN p_parent_id integer) TO admin;
+GRANT ALL ON PROCEDURE public.proc_unassign_student_parent(IN p_student_id integer, IN p_parent_id integer) TO sadmin;
 
 
 --
--- Name: FUNCTION pgp_key_id(bytea); Type: ACL; Schema: public; Owner: postgres
+-- Name: PROCEDURE proc_update_homework(IN p_id integer, IN p_name character varying, IN p_teacher integer, IN p_lesson integer, IN p_duedate date, IN p_desc text, IN p_class character varying); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.pgp_key_id(bytea) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.pgp_key_id(bytea) TO admin;
-GRANT ALL ON FUNCTION public.pgp_key_id(bytea) TO sadmin;
+GRANT ALL ON PROCEDURE public.proc_update_homework(IN p_id integer, IN p_name character varying, IN p_teacher integer, IN p_lesson integer, IN p_duedate date, IN p_desc text, IN p_class character varying) TO teacher;
+GRANT ALL ON PROCEDURE public.proc_update_homework(IN p_id integer, IN p_name character varying, IN p_teacher integer, IN p_lesson integer, IN p_duedate date, IN p_desc text, IN p_class character varying) TO moderator;
+GRANT ALL ON PROCEDURE public.proc_update_homework(IN p_id integer, IN p_name character varying, IN p_teacher integer, IN p_lesson integer, IN p_duedate date, IN p_desc text, IN p_class character varying) TO admin;
+GRANT ALL ON PROCEDURE public.proc_update_homework(IN p_id integer, IN p_name character varying, IN p_teacher integer, IN p_lesson integer, IN p_duedate date, IN p_desc text, IN p_class character varying) TO sadmin;
 
 
 --
--- Name: FUNCTION pgp_pub_decrypt(bytea, bytea); Type: ACL; Schema: public; Owner: postgres
+-- Name: PROCEDURE proc_update_lesson(IN p_lesson_id integer, IN p_name character varying, IN p_class character varying, IN p_subject integer, IN p_material integer, IN p_teacher integer, IN p_date date); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.pgp_pub_decrypt(bytea, bytea) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.pgp_pub_decrypt(bytea, bytea) TO admin;
-GRANT ALL ON FUNCTION public.pgp_pub_decrypt(bytea, bytea) TO sadmin;
+GRANT ALL ON PROCEDURE public.proc_update_lesson(IN p_lesson_id integer, IN p_name character varying, IN p_class character varying, IN p_subject integer, IN p_material integer, IN p_teacher integer, IN p_date date) TO moderator;
+GRANT ALL ON PROCEDURE public.proc_update_lesson(IN p_lesson_id integer, IN p_name character varying, IN p_class character varying, IN p_subject integer, IN p_material integer, IN p_teacher integer, IN p_date date) TO admin;
+GRANT ALL ON PROCEDURE public.proc_update_lesson(IN p_lesson_id integer, IN p_name character varying, IN p_class character varying, IN p_subject integer, IN p_material integer, IN p_teacher integer, IN p_date date) TO sadmin;
 
 
 --
--- Name: FUNCTION pgp_pub_decrypt(bytea, bytea, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: PROCEDURE proc_update_material(IN p_id integer, IN p_name character varying, IN p_desc text, IN p_link text); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.pgp_pub_decrypt(bytea, bytea, text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.pgp_pub_decrypt(bytea, bytea, text) TO admin;
-GRANT ALL ON FUNCTION public.pgp_pub_decrypt(bytea, bytea, text) TO sadmin;
+GRANT ALL ON PROCEDURE public.proc_update_material(IN p_id integer, IN p_name character varying, IN p_desc text, IN p_link text) TO moderator;
+GRANT ALL ON PROCEDURE public.proc_update_material(IN p_id integer, IN p_name character varying, IN p_desc text, IN p_link text) TO admin;
+GRANT ALL ON PROCEDURE public.proc_update_material(IN p_id integer, IN p_name character varying, IN p_desc text, IN p_link text) TO sadmin;
 
 
 --
--- Name: FUNCTION pgp_pub_decrypt(bytea, bytea, text, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: PROCEDURE proc_update_parent(IN p_id integer, IN p_name character varying, IN p_surname character varying, IN p_patronym character varying, IN p_phone character varying, IN p_user_id integer); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.pgp_pub_decrypt(bytea, bytea, text, text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.pgp_pub_decrypt(bytea, bytea, text, text) TO admin;
-GRANT ALL ON FUNCTION public.pgp_pub_decrypt(bytea, bytea, text, text) TO sadmin;
+GRANT ALL ON PROCEDURE public.proc_update_parent(IN p_id integer, IN p_name character varying, IN p_surname character varying, IN p_patronym character varying, IN p_phone character varying, IN p_user_id integer) TO admin;
+GRANT ALL ON PROCEDURE public.proc_update_parent(IN p_id integer, IN p_name character varying, IN p_surname character varying, IN p_patronym character varying, IN p_phone character varying, IN p_user_id integer) TO sadmin;
 
 
 --
--- Name: FUNCTION pgp_pub_decrypt_bytea(bytea, bytea); Type: ACL; Schema: public; Owner: postgres
+-- Name: PROCEDURE proc_update_student(IN p_id integer, IN p_name character varying, IN p_surname character varying, IN p_patronym character varying, IN p_phone character varying, IN p_user_id integer, IN p_class character varying); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.pgp_pub_decrypt_bytea(bytea, bytea) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.pgp_pub_decrypt_bytea(bytea, bytea) TO admin;
-GRANT ALL ON FUNCTION public.pgp_pub_decrypt_bytea(bytea, bytea) TO sadmin;
+GRANT ALL ON PROCEDURE public.proc_update_student(IN p_id integer, IN p_name character varying, IN p_surname character varying, IN p_patronym character varying, IN p_phone character varying, IN p_user_id integer, IN p_class character varying) TO admin;
+GRANT ALL ON PROCEDURE public.proc_update_student(IN p_id integer, IN p_name character varying, IN p_surname character varying, IN p_patronym character varying, IN p_phone character varying, IN p_user_id integer, IN p_class character varying) TO sadmin;
 
 
 --
--- Name: FUNCTION pgp_pub_decrypt_bytea(bytea, bytea, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: PROCEDURE proc_update_studentdata(IN p_id integer, IN p_journal_id integer, IN p_student_id integer, IN p_lesson integer, IN p_mark smallint, IN p_status public.journal_status_enum, IN p_note text); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.pgp_pub_decrypt_bytea(bytea, bytea, text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.pgp_pub_decrypt_bytea(bytea, bytea, text) TO admin;
-GRANT ALL ON FUNCTION public.pgp_pub_decrypt_bytea(bytea, bytea, text) TO sadmin;
+GRANT ALL ON PROCEDURE public.proc_update_studentdata(IN p_id integer, IN p_journal_id integer, IN p_student_id integer, IN p_lesson integer, IN p_mark smallint, IN p_status public.journal_status_enum, IN p_note text) TO teacher;
+GRANT ALL ON PROCEDURE public.proc_update_studentdata(IN p_id integer, IN p_journal_id integer, IN p_student_id integer, IN p_lesson integer, IN p_mark smallint, IN p_status public.journal_status_enum, IN p_note text) TO starosta;
+GRANT ALL ON PROCEDURE public.proc_update_studentdata(IN p_id integer, IN p_journal_id integer, IN p_student_id integer, IN p_lesson integer, IN p_mark smallint, IN p_status public.journal_status_enum, IN p_note text) TO moderator;
+GRANT ALL ON PROCEDURE public.proc_update_studentdata(IN p_id integer, IN p_journal_id integer, IN p_student_id integer, IN p_lesson integer, IN p_mark smallint, IN p_status public.journal_status_enum, IN p_note text) TO admin;
+GRANT ALL ON PROCEDURE public.proc_update_studentdata(IN p_id integer, IN p_journal_id integer, IN p_student_id integer, IN p_lesson integer, IN p_mark smallint, IN p_status public.journal_status_enum, IN p_note text) TO sadmin;
 
 
 --
--- Name: FUNCTION pgp_pub_decrypt_bytea(bytea, bytea, text, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: PROCEDURE proc_update_teacher(IN p_id integer, IN p_name character varying, IN p_surname character varying, IN p_patronym character varying, IN p_phone character varying, IN p_user_id integer); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.pgp_pub_decrypt_bytea(bytea, bytea, text, text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.pgp_pub_decrypt_bytea(bytea, bytea, text, text) TO admin;
-GRANT ALL ON FUNCTION public.pgp_pub_decrypt_bytea(bytea, bytea, text, text) TO sadmin;
+GRANT ALL ON PROCEDURE public.proc_update_teacher(IN p_id integer, IN p_name character varying, IN p_surname character varying, IN p_patronym character varying, IN p_phone character varying, IN p_user_id integer) TO admin;
+GRANT ALL ON PROCEDURE public.proc_update_teacher(IN p_id integer, IN p_name character varying, IN p_surname character varying, IN p_patronym character varying, IN p_phone character varying, IN p_user_id integer) TO sadmin;
 
 
 --
--- Name: FUNCTION pgp_pub_encrypt(text, bytea); Type: ACL; Schema: public; Owner: postgres
+-- Name: PROCEDURE proc_update_user(IN p_id integer, IN p_username character varying, IN p_email character varying, IN p_password character varying); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.pgp_pub_encrypt(text, bytea) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.pgp_pub_encrypt(text, bytea) TO admin;
-GRANT ALL ON FUNCTION public.pgp_pub_encrypt(text, bytea) TO sadmin;
-
-
---
--- Name: FUNCTION pgp_pub_encrypt(text, bytea, text); Type: ACL; Schema: public; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION public.pgp_pub_encrypt(text, bytea, text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.pgp_pub_encrypt(text, bytea, text) TO admin;
-GRANT ALL ON FUNCTION public.pgp_pub_encrypt(text, bytea, text) TO sadmin;
-
-
---
--- Name: FUNCTION pgp_pub_encrypt_bytea(bytea, bytea); Type: ACL; Schema: public; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION public.pgp_pub_encrypt_bytea(bytea, bytea) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.pgp_pub_encrypt_bytea(bytea, bytea) TO admin;
-GRANT ALL ON FUNCTION public.pgp_pub_encrypt_bytea(bytea, bytea) TO sadmin;
-
-
---
--- Name: FUNCTION pgp_pub_encrypt_bytea(bytea, bytea, text); Type: ACL; Schema: public; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION public.pgp_pub_encrypt_bytea(bytea, bytea, text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.pgp_pub_encrypt_bytea(bytea, bytea, text) TO admin;
-GRANT ALL ON FUNCTION public.pgp_pub_encrypt_bytea(bytea, bytea, text) TO sadmin;
-
-
---
--- Name: FUNCTION pgp_sym_decrypt(bytea, text); Type: ACL; Schema: public; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION public.pgp_sym_decrypt(bytea, text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.pgp_sym_decrypt(bytea, text) TO admin;
-GRANT ALL ON FUNCTION public.pgp_sym_decrypt(bytea, text) TO sadmin;
-
-
---
--- Name: FUNCTION pgp_sym_decrypt(bytea, text, text); Type: ACL; Schema: public; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION public.pgp_sym_decrypt(bytea, text, text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.pgp_sym_decrypt(bytea, text, text) TO admin;
-GRANT ALL ON FUNCTION public.pgp_sym_decrypt(bytea, text, text) TO sadmin;
-
-
---
--- Name: FUNCTION pgp_sym_decrypt_bytea(bytea, text); Type: ACL; Schema: public; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION public.pgp_sym_decrypt_bytea(bytea, text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.pgp_sym_decrypt_bytea(bytea, text) TO admin;
-GRANT ALL ON FUNCTION public.pgp_sym_decrypt_bytea(bytea, text) TO sadmin;
-
-
---
--- Name: FUNCTION pgp_sym_decrypt_bytea(bytea, text, text); Type: ACL; Schema: public; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION public.pgp_sym_decrypt_bytea(bytea, text, text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.pgp_sym_decrypt_bytea(bytea, text, text) TO admin;
-GRANT ALL ON FUNCTION public.pgp_sym_decrypt_bytea(bytea, text, text) TO sadmin;
-
-
---
--- Name: FUNCTION pgp_sym_encrypt(text, text); Type: ACL; Schema: public; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION public.pgp_sym_encrypt(text, text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.pgp_sym_encrypt(text, text) TO admin;
-GRANT ALL ON FUNCTION public.pgp_sym_encrypt(text, text) TO sadmin;
-
-
---
--- Name: FUNCTION pgp_sym_encrypt(text, text, text); Type: ACL; Schema: public; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION public.pgp_sym_encrypt(text, text, text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.pgp_sym_encrypt(text, text, text) TO admin;
-GRANT ALL ON FUNCTION public.pgp_sym_encrypt(text, text, text) TO sadmin;
-
-
---
--- Name: FUNCTION pgp_sym_encrypt_bytea(bytea, text); Type: ACL; Schema: public; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION public.pgp_sym_encrypt_bytea(bytea, text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.pgp_sym_encrypt_bytea(bytea, text) TO admin;
-GRANT ALL ON FUNCTION public.pgp_sym_encrypt_bytea(bytea, text) TO sadmin;
-
-
---
--- Name: FUNCTION pgp_sym_encrypt_bytea(bytea, text, text); Type: ACL; Schema: public; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION public.pgp_sym_encrypt_bytea(bytea, text, text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.pgp_sym_encrypt_bytea(bytea, text, text) TO admin;
-GRANT ALL ON FUNCTION public.pgp_sym_encrypt_bytea(bytea, text, text) TO sadmin;
-
-
---
--- Name: PROCEDURE proc_assign_user_to_entity(IN p_user_id integer, IN p_entity_type text, IN p_entity_id integer); Type: ACL; Schema: public; Owner: postgres
---
-
-REVOKE ALL ON PROCEDURE public.proc_assign_user_to_entity(IN p_user_id integer, IN p_entity_type text, IN p_entity_id integer) FROM PUBLIC;
-GRANT ALL ON PROCEDURE public.proc_assign_user_to_entity(IN p_user_id integer, IN p_entity_type text, IN p_entity_id integer) TO sadmin;
-
-
---
--- Name: FUNCTION trg_check_timetable_conflict(); Type: ACL; Schema: public; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION public.trg_check_timetable_conflict() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.trg_check_timetable_conflict() TO admin;
-GRANT ALL ON FUNCTION public.trg_check_timetable_conflict() TO sadmin;
-
-
---
--- Name: FUNCTION trg_prevent_fast_double_mark(); Type: ACL; Schema: public; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION public.trg_prevent_fast_double_mark() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.trg_prevent_fast_double_mark() TO admin;
-GRANT ALL ON FUNCTION public.trg_prevent_fast_double_mark() TO sadmin;
-
-
---
--- Name: FUNCTION trg_unique_user_fields(); Type: ACL; Schema: public; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION public.trg_unique_user_fields() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.trg_unique_user_fields() TO admin;
-GRANT ALL ON FUNCTION public.trg_unique_user_fields() TO sadmin;
-
-
---
--- Name: FUNCTION unaccent(text); Type: ACL; Schema: public; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION public.unaccent(text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.unaccent(text) TO admin;
-GRANT ALL ON FUNCTION public.unaccent(text) TO sadmin;
-
-
---
--- Name: FUNCTION unaccent(regdictionary, text); Type: ACL; Schema: public; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION public.unaccent(regdictionary, text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.unaccent(regdictionary, text) TO admin;
-GRANT ALL ON FUNCTION public.unaccent(regdictionary, text) TO sadmin;
-
-
---
--- Name: FUNCTION unaccent_init(internal); Type: ACL; Schema: public; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION public.unaccent_init(internal) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.unaccent_init(internal) TO admin;
-GRANT ALL ON FUNCTION public.unaccent_init(internal) TO sadmin;
-
-
---
--- Name: FUNCTION unaccent_lexize(internal, internal, internal, internal); Type: ACL; Schema: public; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION public.unaccent_lexize(internal, internal, internal, internal) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.unaccent_lexize(internal, internal, internal, internal) TO admin;
-GRANT ALL ON FUNCTION public.unaccent_lexize(internal, internal, internal, internal) TO sadmin;
+GRANT ALL ON PROCEDURE public.proc_update_user(IN p_id integer, IN p_username character varying, IN p_email character varying, IN p_password character varying) TO admin;
+GRANT ALL ON PROCEDURE public.proc_update_user(IN p_id integer, IN p_username character varying, IN p_email character varying, IN p_password character varying) TO sadmin;
 
 
 --
@@ -10394,9 +9255,8 @@ GRANT ALL ON FUNCTION public.unaccent_lexize(internal, internal, internal, inter
 GRANT SELECT ON TABLE public.class TO student;
 GRANT SELECT ON TABLE public.class TO parent;
 GRANT SELECT ON TABLE public.class TO teacher;
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.class TO admin;
+GRANT SELECT ON TABLE public.class TO admin;
 GRANT ALL ON TABLE public.class TO sadmin;
-GRANT SELECT ON TABLE public.class TO guest;
 
 
 --
@@ -10406,16 +9266,6 @@ GRANT SELECT ON TABLE public.class TO guest;
 GRANT SELECT ON TABLE public.days TO admin;
 GRANT ALL ON TABLE public.days TO sadmin;
 GRANT SELECT ON TABLE public.days TO student;
-GRANT SELECT ON TABLE public.days TO guest;
-
-
---
--- Name: SEQUENCE days_day_id_seq; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT,USAGE ON SEQUENCE public.days_day_id_seq TO teacher;
-GRANT SELECT,USAGE ON SEQUENCE public.days_day_id_seq TO admin;
-GRANT SELECT,USAGE ON SEQUENCE public.days_day_id_seq TO sadmin;
 
 
 --
@@ -10429,35 +9279,15 @@ GRANT SELECT ON TABLE public.homework TO teacher;
 GRANT SELECT ON TABLE public.homework TO moderator;
 GRANT SELECT ON TABLE public.homework TO admin;
 GRANT ALL ON TABLE public.homework TO sadmin;
-GRANT SELECT ON TABLE public.homework TO guest;
-
-
---
--- Name: SEQUENCE homework_homework_id_seq; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT,USAGE ON SEQUENCE public.homework_homework_id_seq TO teacher;
-GRANT SELECT,USAGE ON SEQUENCE public.homework_homework_id_seq TO admin;
-GRANT SELECT,USAGE ON SEQUENCE public.homework_homework_id_seq TO sadmin;
 
 
 --
 -- Name: TABLE journal; Type: ACL; Schema: public; Owner: postgres
 --
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.journal TO admin;
+GRANT SELECT ON TABLE public.journal TO admin;
 GRANT ALL ON TABLE public.journal TO sadmin;
 GRANT SELECT ON TABLE public.journal TO student;
-GRANT SELECT ON TABLE public.journal TO guest;
-
-
---
--- Name: SEQUENCE journal_journal_id_seq; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT,USAGE ON SEQUENCE public.journal_journal_id_seq TO teacher;
-GRANT SELECT,USAGE ON SEQUENCE public.journal_journal_id_seq TO admin;
-GRANT SELECT,USAGE ON SEQUENCE public.journal_journal_id_seq TO sadmin;
 
 
 --
@@ -10471,16 +9301,6 @@ GRANT SELECT ON TABLE public.lessons TO teacher;
 GRANT SELECT ON TABLE public.lessons TO moderator;
 GRANT SELECT ON TABLE public.lessons TO admin;
 GRANT ALL ON TABLE public.lessons TO sadmin;
-GRANT SELECT ON TABLE public.lessons TO guest;
-
-
---
--- Name: SEQUENCE lessons_lesson_id_seq; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT,USAGE ON SEQUENCE public.lessons_lesson_id_seq TO teacher;
-GRANT SELECT,USAGE ON SEQUENCE public.lessons_lesson_id_seq TO admin;
-GRANT SELECT,USAGE ON SEQUENCE public.lessons_lesson_id_seq TO sadmin;
 
 
 --
@@ -10491,16 +9311,6 @@ GRANT SELECT ON TABLE public.material TO moderator;
 GRANT SELECT ON TABLE public.material TO admin;
 GRANT ALL ON TABLE public.material TO sadmin;
 GRANT SELECT ON TABLE public.material TO student;
-GRANT SELECT ON TABLE public.material TO guest;
-
-
---
--- Name: SEQUENCE material_material_id_seq; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT,USAGE ON SEQUENCE public.material_material_id_seq TO teacher;
-GRANT SELECT,USAGE ON SEQUENCE public.material_material_id_seq TO admin;
-GRANT SELECT,USAGE ON SEQUENCE public.material_material_id_seq TO sadmin;
 
 
 --
@@ -10511,16 +9321,6 @@ GRANT SELECT ON TABLE public.parents TO moderator;
 GRANT SELECT ON TABLE public.parents TO admin;
 GRANT ALL ON TABLE public.parents TO sadmin;
 GRANT SELECT ON TABLE public.parents TO student;
-GRANT SELECT ON TABLE public.parents TO guest;
-
-
---
--- Name: SEQUENCE parents_parent_id_seq; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT,USAGE ON SEQUENCE public.parents_parent_id_seq TO teacher;
-GRANT SELECT,USAGE ON SEQUENCE public.parents_parent_id_seq TO admin;
-GRANT SELECT,USAGE ON SEQUENCE public.parents_parent_id_seq TO sadmin;
 
 
 --
@@ -10530,16 +9330,6 @@ GRANT SELECT,USAGE ON SEQUENCE public.parents_parent_id_seq TO sadmin;
 GRANT SELECT ON TABLE public.roles TO admin;
 GRANT ALL ON TABLE public.roles TO sadmin;
 GRANT SELECT ON TABLE public.roles TO student;
-GRANT SELECT ON TABLE public.roles TO guest;
-
-
---
--- Name: SEQUENCE roles_role_id_seq; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT,USAGE ON SEQUENCE public.roles_role_id_seq TO teacher;
-GRANT SELECT,USAGE ON SEQUENCE public.roles_role_id_seq TO admin;
-GRANT SELECT,USAGE ON SEQUENCE public.roles_role_id_seq TO sadmin;
 
 
 --
@@ -10553,16 +9343,6 @@ GRANT SELECT ON TABLE public.studentdata TO moderator;
 GRANT SELECT ON TABLE public.studentdata TO admin;
 GRANT ALL ON TABLE public.studentdata TO sadmin;
 GRANT SELECT ON TABLE public.studentdata TO student;
-GRANT SELECT ON TABLE public.studentdata TO guest;
-
-
---
--- Name: SEQUENCE studentdata_data_id_seq; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT,USAGE ON SEQUENCE public.studentdata_data_id_seq TO teacher;
-GRANT SELECT,USAGE ON SEQUENCE public.studentdata_data_id_seq TO admin;
-GRANT SELECT,USAGE ON SEQUENCE public.studentdata_data_id_seq TO sadmin;
 
 
 --
@@ -10573,7 +9353,6 @@ GRANT SELECT ON TABLE public.studentparent TO parent;
 GRANT SELECT ON TABLE public.studentparent TO admin;
 GRANT ALL ON TABLE public.studentparent TO sadmin;
 GRANT SELECT ON TABLE public.studentparent TO student;
-GRANT SELECT ON TABLE public.studentparent TO guest;
 
 
 --
@@ -10587,16 +9366,6 @@ GRANT SELECT ON TABLE public.students TO moderator;
 GRANT SELECT ON TABLE public.students TO admin;
 GRANT ALL ON TABLE public.students TO sadmin;
 GRANT SELECT ON TABLE public.students TO student;
-GRANT SELECT ON TABLE public.students TO guest;
-
-
---
--- Name: SEQUENCE students_student_id_seq; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT,USAGE ON SEQUENCE public.students_student_id_seq TO teacher;
-GRANT SELECT,USAGE ON SEQUENCE public.students_student_id_seq TO admin;
-GRANT SELECT,USAGE ON SEQUENCE public.students_student_id_seq TO sadmin;
 
 
 --
@@ -10605,18 +9374,8 @@ GRANT SELECT,USAGE ON SEQUENCE public.students_student_id_seq TO sadmin;
 
 GRANT SELECT ON TABLE public.subjects TO student;
 GRANT SELECT ON TABLE public.subjects TO teacher;
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.subjects TO admin;
+GRANT SELECT ON TABLE public.subjects TO admin;
 GRANT ALL ON TABLE public.subjects TO sadmin;
-GRANT SELECT ON TABLE public.subjects TO guest;
-
-
---
--- Name: SEQUENCE subjects_subject_id_seq; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT,USAGE ON SEQUENCE public.subjects_subject_id_seq TO teacher;
-GRANT SELECT,USAGE ON SEQUENCE public.subjects_subject_id_seq TO admin;
-GRANT SELECT,USAGE ON SEQUENCE public.subjects_subject_id_seq TO sadmin;
 
 
 --
@@ -10627,35 +9386,15 @@ GRANT SELECT ON TABLE public.teacher TO moderator;
 GRANT SELECT ON TABLE public.teacher TO admin;
 GRANT ALL ON TABLE public.teacher TO sadmin;
 GRANT SELECT ON TABLE public.teacher TO student;
-GRANT SELECT ON TABLE public.teacher TO guest;
-
-
---
--- Name: SEQUENCE teacher_teacher_id_seq; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT,USAGE ON SEQUENCE public.teacher_teacher_id_seq TO teacher;
-GRANT SELECT,USAGE ON SEQUENCE public.teacher_teacher_id_seq TO admin;
-GRANT SELECT,USAGE ON SEQUENCE public.teacher_teacher_id_seq TO sadmin;
 
 
 --
 -- Name: TABLE timetable; Type: ACL; Schema: public; Owner: postgres
 --
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.timetable TO admin;
+GRANT SELECT ON TABLE public.timetable TO admin;
 GRANT ALL ON TABLE public.timetable TO sadmin;
 GRANT SELECT ON TABLE public.timetable TO student;
-GRANT SELECT ON TABLE public.timetable TO guest;
-
-
---
--- Name: SEQUENCE timetable_timetable_id_seq; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT,USAGE ON SEQUENCE public.timetable_timetable_id_seq TO teacher;
-GRANT SELECT,USAGE ON SEQUENCE public.timetable_timetable_id_seq TO admin;
-GRANT SELECT,USAGE ON SEQUENCE public.timetable_timetable_id_seq TO sadmin;
 
 
 --
@@ -10665,7 +9404,6 @@ GRANT SELECT,USAGE ON SEQUENCE public.timetable_timetable_id_seq TO sadmin;
 GRANT SELECT ON TABLE public.userrole TO admin;
 GRANT ALL ON TABLE public.userrole TO sadmin;
 GRANT SELECT ON TABLE public.userrole TO student;
-GRANT SELECT ON TABLE public.userrole TO guest;
 
 
 --
@@ -10675,16 +9413,6 @@ GRANT SELECT ON TABLE public.userrole TO guest;
 GRANT SELECT ON TABLE public.users TO admin;
 GRANT ALL ON TABLE public.users TO sadmin;
 GRANT SELECT ON TABLE public.users TO student;
-GRANT SELECT ON TABLE public.users TO guest;
-
-
---
--- Name: SEQUENCE users_user_id_seq; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT,USAGE ON SEQUENCE public.users_user_id_seq TO teacher;
-GRANT SELECT,USAGE ON SEQUENCE public.users_user_id_seq TO admin;
-GRANT SELECT,USAGE ON SEQUENCE public.users_user_id_seq TO sadmin;
 
 
 --
@@ -10694,8 +9422,6 @@ GRANT SELECT,USAGE ON SEQUENCE public.users_user_id_seq TO sadmin;
 GRANT SELECT ON TABLE public.vw_class_attendance_last_month TO admin;
 GRANT ALL ON TABLE public.vw_class_attendance_last_month TO sadmin;
 GRANT SELECT ON TABLE public.vw_class_attendance_last_month TO student;
-GRANT SELECT ON TABLE public.vw_class_attendance_last_month TO guest;
-GRANT SELECT ON TABLE public.vw_class_attendance_last_month TO teacher;
 
 
 --
@@ -10705,20 +9431,6 @@ GRANT SELECT ON TABLE public.vw_class_attendance_last_month TO teacher;
 GRANT SELECT ON TABLE public.vw_class_ranking TO admin;
 GRANT ALL ON TABLE public.vw_class_ranking TO sadmin;
 GRANT SELECT ON TABLE public.vw_class_ranking TO student;
-GRANT SELECT ON TABLE public.vw_class_ranking TO guest;
-GRANT SELECT ON TABLE public.vw_class_ranking TO teacher;
-
-
---
--- Name: TABLE vw_homework_by_student_or_class; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT ON TABLE public.vw_homework_by_student_or_class TO student;
-GRANT SELECT ON TABLE public.vw_homework_by_student_or_class TO admin;
-GRANT SELECT ON TABLE public.vw_homework_by_student_or_class TO sadmin;
-GRANT SELECT ON TABLE public.vw_homework_by_student_or_class TO guest;
-GRANT SELECT ON TABLE public.vw_homework_by_student_or_class TO teacher;
-GRANT SELECT ON TABLE public.vw_homework_by_student_or_class TO parent;
 
 
 --
@@ -10728,20 +9440,6 @@ GRANT SELECT ON TABLE public.vw_homework_by_student_or_class TO parent;
 GRANT SELECT ON TABLE public.vw_homework_tomorrow TO admin;
 GRANT ALL ON TABLE public.vw_homework_tomorrow TO sadmin;
 GRANT SELECT ON TABLE public.vw_homework_tomorrow TO student;
-GRANT SELECT ON TABLE public.vw_homework_tomorrow TO guest;
-GRANT SELECT ON TABLE public.vw_homework_tomorrow TO teacher;
-GRANT SELECT ON TABLE public.vw_homework_tomorrow TO parent;
-
-
---
--- Name: TABLE vw_student_perfomance_matrix; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT ON TABLE public.vw_student_perfomance_matrix TO teacher;
-GRANT SELECT ON TABLE public.vw_student_perfomance_matrix TO student;
-GRANT SELECT ON TABLE public.vw_student_perfomance_matrix TO parent;
-GRANT SELECT ON TABLE public.vw_student_perfomance_matrix TO admin;
-GRANT SELECT ON TABLE public.vw_student_perfomance_matrix TO sadmin;
 
 
 --
@@ -10751,7 +9449,6 @@ GRANT SELECT ON TABLE public.vw_student_perfomance_matrix TO sadmin;
 GRANT SELECT ON TABLE public.vw_student_ranking TO student;
 GRANT SELECT ON TABLE public.vw_student_ranking TO admin;
 GRANT ALL ON TABLE public.vw_student_ranking TO sadmin;
-GRANT SELECT ON TABLE public.vw_student_ranking TO guest;
 
 
 --
@@ -10761,7 +9458,6 @@ GRANT SELECT ON TABLE public.vw_student_ranking TO guest;
 GRANT SELECT ON TABLE public.vw_students_avg_above_7 TO admin;
 GRANT ALL ON TABLE public.vw_students_avg_above_7 TO sadmin;
 GRANT SELECT ON TABLE public.vw_students_avg_above_7 TO student;
-GRANT SELECT ON TABLE public.vw_students_avg_above_7 TO guest;
 
 
 --
@@ -10771,27 +9467,6 @@ GRANT SELECT ON TABLE public.vw_students_avg_above_7 TO guest;
 GRANT SELECT ON TABLE public.vw_students_by_class TO admin;
 GRANT ALL ON TABLE public.vw_students_by_class TO sadmin;
 GRANT SELECT ON TABLE public.vw_students_by_class TO student;
-GRANT SELECT ON TABLE public.vw_students_by_class TO guest;
-GRANT SELECT ON TABLE public.vw_students_by_class TO teacher;
-
-
---
--- Name: TABLE vw_teacher_analytics; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT ON TABLE public.vw_teacher_analytics TO teacher;
-GRANT SELECT ON TABLE public.vw_teacher_analytics TO admin;
-GRANT SELECT ON TABLE public.vw_teacher_analytics TO sadmin;
-
-
---
--- Name: TABLE vw_teacher_class_students; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT ON TABLE public.vw_teacher_class_students TO teacher;
-GRANT SELECT ON TABLE public.vw_teacher_class_students TO admin;
-GRANT SELECT ON TABLE public.vw_teacher_class_students TO sadmin;
-GRANT SELECT ON TABLE public.vw_teacher_class_students TO guest;
 
 
 --
@@ -10801,8 +9476,6 @@ GRANT SELECT ON TABLE public.vw_teacher_class_students TO guest;
 GRANT SELECT ON TABLE public.vw_teachers_with_classes TO admin;
 GRANT ALL ON TABLE public.vw_teachers_with_classes TO sadmin;
 GRANT SELECT ON TABLE public.vw_teachers_with_classes TO student;
-GRANT SELECT ON TABLE public.vw_teachers_with_classes TO guest;
-GRANT SELECT ON TABLE public.vw_teachers_with_classes TO teacher;
 
 
 --
@@ -10812,208 +9485,11 @@ GRANT SELECT ON TABLE public.vw_teachers_with_classes TO teacher;
 GRANT SELECT ON TABLE public.vw_view_timetable_week TO student;
 GRANT SELECT ON TABLE public.vw_view_timetable_week TO admin;
 GRANT ALL ON TABLE public.vw_view_timetable_week TO sadmin;
-GRANT SELECT ON TABLE public.vw_view_timetable_week TO guest;
-GRANT SELECT ON TABLE public.vw_view_timetable_week TO teacher;
-GRANT SELECT ON TABLE public.vw_view_timetable_week TO parent;
-
-
---
--- Name: TABLE vws_class_schedule; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT ON TABLE public.vws_class_schedule TO teacher;
-GRANT SELECT ON TABLE public.vws_class_schedule TO student;
-GRANT SELECT ON TABLE public.vws_class_schedule TO parent;
-GRANT SELECT ON TABLE public.vws_class_schedule TO admin;
-GRANT SELECT ON TABLE public.vws_class_schedule TO sadmin;
-
-
---
--- Name: TABLE vws_classes; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT ON TABLE public.vws_classes TO teacher;
-GRANT SELECT ON TABLE public.vws_classes TO admin;
-GRANT SELECT ON TABLE public.vws_classes TO sadmin;
-
-
---
--- Name: TABLE vws_days; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT ON TABLE public.vws_days TO teacher;
-GRANT SELECT ON TABLE public.vws_days TO admin;
-GRANT SELECT ON TABLE public.vws_days TO sadmin;
-
-
---
--- Name: TABLE vws_full_journal; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT ON TABLE public.vws_full_journal TO teacher;
-GRANT SELECT ON TABLE public.vws_full_journal TO student;
-GRANT SELECT ON TABLE public.vws_full_journal TO parent;
-GRANT SELECT ON TABLE public.vws_full_journal TO admin;
-GRANT SELECT ON TABLE public.vws_full_journal TO sadmin;
-
-
---
--- Name: TABLE vws_homeworks; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT ON TABLE public.vws_homeworks TO teacher;
-GRANT SELECT ON TABLE public.vws_homeworks TO admin;
-GRANT SELECT ON TABLE public.vws_homeworks TO sadmin;
-
-
---
--- Name: TABLE vws_journals; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT ON TABLE public.vws_journals TO teacher;
-GRANT SELECT ON TABLE public.vws_journals TO admin;
-GRANT SELECT ON TABLE public.vws_journals TO sadmin;
-
-
---
--- Name: TABLE vws_lessons; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT ON TABLE public.vws_lessons TO teacher;
-GRANT SELECT ON TABLE public.vws_lessons TO admin;
-GRANT SELECT ON TABLE public.vws_lessons TO sadmin;
-
-
---
--- Name: TABLE vws_materials; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT ON TABLE public.vws_materials TO teacher;
-GRANT SELECT ON TABLE public.vws_materials TO admin;
-GRANT SELECT ON TABLE public.vws_materials TO sadmin;
-
-
---
--- Name: TABLE vws_parents; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT ON TABLE public.vws_parents TO teacher;
-GRANT SELECT ON TABLE public.vws_parents TO admin;
-GRANT SELECT ON TABLE public.vws_parents TO sadmin;
-
-
---
--- Name: TABLE vws_roles; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT ON TABLE public.vws_roles TO teacher;
-GRANT SELECT ON TABLE public.vws_roles TO admin;
-GRANT SELECT ON TABLE public.vws_roles TO sadmin;
-
-
---
--- Name: TABLE vws_student_data; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT ON TABLE public.vws_student_data TO teacher;
-GRANT SELECT ON TABLE public.vws_student_data TO admin;
-GRANT SELECT ON TABLE public.vws_student_data TO sadmin;
-
-
---
--- Name: TABLE vws_student_parents; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT ON TABLE public.vws_student_parents TO teacher;
-GRANT SELECT ON TABLE public.vws_student_parents TO admin;
-GRANT SELECT ON TABLE public.vws_student_parents TO sadmin;
-
-
---
--- Name: TABLE vws_student_profile; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT ON TABLE public.vws_student_profile TO teacher;
-GRANT SELECT ON TABLE public.vws_student_profile TO student;
-GRANT SELECT ON TABLE public.vws_student_profile TO parent;
-GRANT SELECT ON TABLE public.vws_student_profile TO admin;
-GRANT SELECT ON TABLE public.vws_student_profile TO sadmin;
-
-
---
--- Name: TABLE vws_students; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT ON TABLE public.vws_students TO teacher;
-GRANT SELECT ON TABLE public.vws_students TO admin;
-GRANT SELECT ON TABLE public.vws_students TO sadmin;
-
-
---
--- Name: TABLE vws_subjects; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT ON TABLE public.vws_subjects TO teacher;
-GRANT SELECT ON TABLE public.vws_subjects TO admin;
-GRANT SELECT ON TABLE public.vws_subjects TO sadmin;
-
-
---
--- Name: TABLE vws_teacher_profile; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT ON TABLE public.vws_teacher_profile TO teacher;
-GRANT SELECT ON TABLE public.vws_teacher_profile TO admin;
-GRANT SELECT ON TABLE public.vws_teacher_profile TO sadmin;
-
-
---
--- Name: TABLE vws_teachers; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT ON TABLE public.vws_teachers TO teacher;
-GRANT SELECT ON TABLE public.vws_teachers TO admin;
-GRANT SELECT ON TABLE public.vws_teachers TO sadmin;
-
-
---
--- Name: TABLE vws_timetables; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT ON TABLE public.vws_timetables TO teacher;
-GRANT SELECT ON TABLE public.vws_timetables TO admin;
-GRANT SELECT ON TABLE public.vws_timetables TO sadmin;
-
-
---
--- Name: TABLE vws_user_auth_info; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT ON TABLE public.vws_user_auth_info TO admin;
-GRANT SELECT ON TABLE public.vws_user_auth_info TO sadmin;
-
-
---
--- Name: TABLE vws_user_roles; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT ON TABLE public.vws_user_roles TO teacher;
-GRANT SELECT ON TABLE public.vws_user_roles TO admin;
-GRANT SELECT ON TABLE public.vws_user_roles TO sadmin;
-
-
---
--- Name: TABLE vws_users; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT ON TABLE public.vws_users TO teacher;
-GRANT SELECT ON TABLE public.vws_users TO admin;
-GRANT SELECT ON TABLE public.vws_users TO sadmin;
 
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict eDBkr7AlbFMRERc7feaZBTTNemsFqvrqUuZbVcFAvh92c2tY0Jye6fFsyBaWRUu
+\unrestrict lSYv2Aaji44Vt9g3fdxxKwafV8wgtHDcjzNCbCO2QKlYfOdQe9h0n7z1olRCvQe
 
