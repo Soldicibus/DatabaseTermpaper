@@ -47,6 +47,7 @@ GRANT EXECUTE ON FUNCTION get_homework_by_date_class(VARCHAR, DATE) TO student;
 GRANT EXECUTE ON FUNCTION homework_by_date_subject(DATE, INT) TO student;
 GRANT EXECUTE ON FUNCTION student_attendance_report(INT, DATE, DATE) TO student;
 GRANT EXECUTE ON FUNCTION student_day_plan(INT, DATE) TO student;
+GRANT EXECUTE ON FUNCTION get_student_monthly_grades(INT, DATE DEFAULT CURRENT_DATE) TO student;
 
 -- Views
 GRANT SELECT ON vws_student_profile TO student;
@@ -72,7 +73,7 @@ GRANT EXECUTE ON FUNCTION get_homework_by_date_class(VARCHAR, DATE) TO parent;
 GRANT EXECUTE ON FUNCTION homework_by_date_subject(DATE, INT) TO parent;
 GRANT EXECUTE ON FUNCTION student_attendance_report(INT, DATE, DATE) TO parent;
 GRANT EXECUTE ON FUNCTION student_day_plan(INT, DATE) TO parent;
-
+GRANT EXECUTE ON FUNCTION get_student_monthly_grades(INT, DATE DEFAULT CURRENT_DATE) TO parent;
 -- Views
 GRANT SELECT ON vws_student_profile TO parent;
 GRANT SELECT ON vws_class_schedule TO parent;

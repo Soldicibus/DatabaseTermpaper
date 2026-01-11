@@ -16,7 +16,7 @@ SET search_path = public, pg_temp
 AS $$
 BEGIN
     IF EXISTS (
-        SELECT 1 FROM students WHERE student_user_id = p_user_id
+        SELECT 1 FROM vws.students WHERE student_user_id = p_user_id
     ) THEN
         RETURN QUERY
         SELECT
@@ -27,11 +27,11 @@ BEGIN
 	        s.student_patronym,
             u.email,
             s.student_phone
-        FROM students s
-        JOIN users u ON u.user_id = s.student_user_id
+        FROM vws.students s
+        JOIN vws.users u ON u.user_id = s.student_user_id
         WHERE s.student_user_id = p_user_id;
     ELSIF EXISTS (
-        SELECT 1 FROM teacher WHERE teacher_user_id = p_user_id
+        SELECT 1 FROM vws.teachers WHERE teacher_user_id = p_user_id
     ) THEN
         RETURN QUERY
         SELECT
@@ -42,11 +42,11 @@ BEGIN
 			t.teacher_patronym,
             u.email,
             t.teacher_phone
-        FROM teacher t
-        JOIN users u ON u.user_id = t.teacher_user_id
+        FROM vws.teachers t
+        JOIN vws.users u ON u.user_id = t.teacher_user_id
         WHERE t.teacher_user_id = p_user_id;
     ELSIF EXISTS (
-        SELECT 1 FROM parents WHERE parent_user_id = p_user_id
+        SELECT 1 FROM vws.parents WHERE parent_user_id = p_user_id
     ) THEN
         RETURN QUERY
         SELECT
@@ -57,8 +57,8 @@ BEGIN
 			p.parent_patronym,
             u.email,
             p.parent_phone
-        FROM parents p
-        JOIN users u ON u.user_id = p.parent_user_id
+        FROM vws.parents p
+        JOIN vws.users u ON u.user_id = p.parent_user_id
         WHERE p.parent_user_id = p_user_id;
 
     ELSE

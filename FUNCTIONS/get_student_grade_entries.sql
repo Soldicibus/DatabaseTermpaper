@@ -22,9 +22,9 @@ AS $$
 	sd.data_id,
         sd.mark,
         sd.status
-    FROM StudentData sd
-    JOIN Lessons l ON sd.lesson = l.lesson_id
-    JOIN Subjects s ON l.lesson_subject = s.subject_id
+    FROM vws.student_data sd
+    JOIN vws.lessons l ON sd.lesson = l.lesson_id
+    JOIN vws.subjects s ON l.lesson_subject = s.subject_id
     WHERE sd.student_id = p_student_id
       AND l.lesson_date BETWEEN p_start_date AND p_end_date
 	  AND sd.mark IS NOT NULL

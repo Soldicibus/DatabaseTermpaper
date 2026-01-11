@@ -8,6 +8,7 @@ DROP FUNCTION IF EXISTS get_data_by_user_id(p_user_id INT) CASCADE;
 DROP FUNCTION IF EXISTS get_homework_by_date_class(p_class VARCHAR, p_date DATE) CASCADE;
 DROP FUNCTION IF EXISTS get_student_grade_entries(p_student_id INT, p_start_date TIMESTAMP WITHOUT TIME ZONE, p_end_date TIMESTAMP WITHOUT TIME ZONE) CASCADE;
 DROP FUNCTION IF EXISTS get_student_marks(p_student_id INT, p_from DATE, p_to DATE) CASCADE;
+DROP FUNCTION IF EXISTS get_student_monthly_grades(p_student_id INT, p_month DATE) CASCADE;
 DROP FUNCTION IF EXISTS get_teacher_salary(p_teacher_id INT, p_from DATE, p_to DATE) CASCADE;
 DROP FUNCTION IF EXISTS get_user_role(p_user_id INT) CASCADE;
 DROP FUNCTION IF EXISTS homework_by_date_subject(p_date DATE, p_subject INT) CASCADE;
@@ -22,7 +23,7 @@ DROP PROCEDURE IF EXISTS proc_create_class(IN p_class_name VARCHAR(10), IN p_cla
 DROP PROCEDURE IF EXISTS proc_create_day(IN p_subject integer, IN p_timetable integer, IN p_day_time time, IN p_day_weekday varchar(20), OUT new_day_id integer) CASCADE;
 DROP PROCEDURE IF EXISTS proc_create_homework(INOUT p_name varchar(100), IN p_teacher integer, IN p_lesson integer, INOUT p_duedate date, INOUT p_desc text, IN p_class varchar(10), OUT new_homework_id integer) CASCADE;
 DROP PROCEDURE IF EXISTS proc_create_journal(IN p_journal_teacher INT, IN p_journal_name VARCHAR(50)) CASCADE;
-DROP PROCEDURE IF EXISTS proc_create_lesson(IN p_name varchar(50), IN p_class varchar(10), IN p_subject integer, IN p_material integer, IN p_teacher integer, IN p_date date, OUT new_lesson_id integer) CASCADE;
+DROP PROCEDURE IF EXISTS proc_create_lesson(IN p_name varchar(50), IN p_class varchar(10), IN p_subject integer, IN p_material integer, IN p_teacher integer, IN p_date TIMESTAMP WITHOUT TIME ZONE, OUT new_lesson_id integer) CASCADE;
 DROP PROCEDURE IF EXISTS proc_create_material(IN p_name varchar(100), IN p_desc text, IN p_link text, OUT new_material_id integer) CASCADE;
 DROP PROCEDURE IF EXISTS proc_create_parent(IN p_name VARCHAR(50), IN p_surname VARCHAR(50), IN p_patronym VARCHAR(50), IN p_phone VARCHAR(20), IN p_user_id INTEGER, OUT new_parent_id INTEGER, OUT generated_password TEXT) CASCADE;
 DROP PROCEDURE IF EXISTS proc_create_role(IN p_role_name VARCHAR(10), IN p_role_desc TEXT) CASCADE;
@@ -63,7 +64,7 @@ DROP PROCEDURE IF EXISTS proc_update_subject(IN p_subject_id INT, IN p_subject_n
 DROP PROCEDURE IF EXISTS proc_update_teacher(IN p_id integer, IN p_name varchar(50), IN p_surname varchar(50), IN p_patronym varchar(50), IN p_phone varchar(20), IN p_user_id integer) CASCADE;
 DROP PROCEDURE IF EXISTS proc_update_timetable(IN p_timetable_id INT, IN p_timetable_name VARCHAR(20), IN p_timetable_class VARCHAR(10)) CASCADE;
 DROP PROCEDURE IF EXISTS proc_update_user(IN p_id integer, IN p_username varchar(50), IN p_email varchar(60), IN p_password varchar(50)) CASCADE;
-DROP PROCEDURE IF EXISTS public.proc_update_lesson(IN p_lesson_id integer, IN p_name character varying, IN p_class character varying, IN p_subject integer, IN p_material integer, IN p_teacher integer, IN p_date date) CASCADE;
+DROP PROCEDURE IF EXISTS public.proc_update_lesson(IN p_lesson_id integer, IN p_name character varying, IN p_class character varying, IN p_subject integer, IN p_material integer, IN p_teacher integer, IN p_date TIMESTAMP WITHOUT TIME ZONE) CASCADE;
 
 -- Definitions
 -- Source: FUNCTIONS\absents_more_than_x.sql
@@ -77,8 +78,8 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 	SELECT s.student_id, s.student_name, s.student_surname, COUNT(*)
-	FROM Students s
-	JOIN StudentData sd ON s.student_id = sd.student_id
+	FROM vws.students s
+	JOIN vws.student_data sd ON s.student_id = sd.student_id
 	WHERE s.student_class = p_class
 	AND sd.status IN ('Н','Не присутній')
 	GROUP BY s.student_id
@@ -87,10 +88,13 @@ $$;
 
 
 -- Source: FUNCTIONS\get_children_by_parent.sql
+DROP FUNCTION IF EXISTS get_children_by_parent(INT);
+
 CREATE OR REPLACE FUNCTION get_children_by_parent(
     p_parent_id INT
 )
 RETURNS TABLE(
+    student_id INT,
     student_name VARCHAR,
     student_surname VARCHAR,
     student_class VARCHAR,
@@ -102,6 +106,7 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
     SELECT
+        s.student_id,
         s.student_name,
         s.student_surname,
         s.student_class,
@@ -114,9 +119,9 @@ AS $$
             2
         ) AS attendance
 
-    FROM StudentParent sp
-    JOIN Students s ON sp.student_id_ref = s.student_id
-    LEFT JOIN StudentData j ON j.student_id = s.student_id
+    FROM vws.student_parents sp
+    JOIN vws.students s ON sp.student_id_ref = s.student_id
+    LEFT JOIN vws.student_data j ON j.student_id = s.student_id
 
     WHERE sp.parent_id_ref = p_parent_id
 
@@ -143,7 +148,7 @@ SET search_path = public, pg_temp
 AS $$
 BEGIN
     IF EXISTS (
-        SELECT 1 FROM students WHERE student_user_id = p_user_id
+        SELECT 1 FROM vws.students WHERE student_user_id = p_user_id
     ) THEN
         RETURN QUERY
         SELECT
@@ -154,11 +159,11 @@ BEGIN
 	        s.student_patronym,
             u.email,
             s.student_phone
-        FROM students s
-        JOIN users u ON u.user_id = s.student_user_id
+        FROM vws.students s
+        JOIN vws.users u ON u.user_id = s.student_user_id
         WHERE s.student_user_id = p_user_id;
     ELSIF EXISTS (
-        SELECT 1 FROM teacher WHERE teacher_user_id = p_user_id
+        SELECT 1 FROM vws.teachers WHERE teacher_user_id = p_user_id
     ) THEN
         RETURN QUERY
         SELECT
@@ -169,11 +174,11 @@ BEGIN
 			t.teacher_patronym,
             u.email,
             t.teacher_phone
-        FROM teacher t
-        JOIN users u ON u.user_id = t.teacher_user_id
+        FROM vws.teachers t
+        JOIN vws.users u ON u.user_id = t.teacher_user_id
         WHERE t.teacher_user_id = p_user_id;
     ELSIF EXISTS (
-        SELECT 1 FROM parents WHERE parent_user_id = p_user_id
+        SELECT 1 FROM vws.parents WHERE parent_user_id = p_user_id
     ) THEN
         RETURN QUERY
         SELECT
@@ -184,8 +189,8 @@ BEGIN
 			p.parent_patronym,
             u.email,
             p.parent_phone
-        FROM parents p
-        JOIN users u ON u.user_id = p.parent_user_id
+        FROM vws.parents p
+        JOIN vws.users u ON u.user_id = p.parent_user_id
         WHERE p.parent_user_id = p_user_id;
 
     ELSE
@@ -206,7 +211,7 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 	SELECT homework_name, homework_desc
-	FROM Homework
+	FROM vws.homeworks
 	WHERE homework_class = p_class
 	AND homework_duedate = p_date;
 $$;
@@ -237,9 +242,9 @@ AS $$
 	sd.data_id,
         sd.mark,
         sd.status
-    FROM StudentData sd
-    JOIN Lessons l ON sd.lesson = l.lesson_id
-    JOIN Subjects s ON l.lesson_subject = s.subject_id
+    FROM vws.student_data sd
+    JOIN vws.lessons l ON sd.lesson = l.lesson_id
+    JOIN vws.subjects s ON l.lesson_subject = s.subject_id
     WHERE sd.student_id = p_student_id
       AND l.lesson_date BETWEEN p_start_date AND p_end_date
 	  AND sd.mark IS NOT NULL
@@ -258,13 +263,55 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 	SELECT sd.mark, l.lesson_date
-	FROM StudentData sd
+	FROM vws.student_data sd
 	JOIN Journal j ON sd.journal_id = j.journal_id
 	JOIN Lessons l ON j.journal_teacher = l.lesson_teacher
 	WHERE sd.mark IS NOT NULL
 	AND sd.student_id = p_student_id
 	  AND l.lesson_date BETWEEN p_from AND p_to;
 $$;
+
+-- Source: FUNCTIONS\get_student_monthly_grades.sql
+CREATE OR REPLACE FUNCTION get_student_monthly_grades(
+    p_student_id INT,
+    p_month DATE DEFAULT CURRENT_DATE
+)
+RETURNS TABLE (
+    data_id INT,
+    subject_name TEXT,
+    mark SMALLINT,
+    status journal_status_enum,
+    note TEXT,
+    lesson_date DATE,
+    lesson_id INT,
+    teacher_id INT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        sd.data_id,
+        sub.subject_name,
+        sd.mark,
+        sd.status,
+        sd.note,
+        l.lesson_date,
+        l.lesson_id,
+        l.lesson_teacher
+    FROM vws.student_data sd
+    JOIN vws.lessons l ON sd.lesson = l.lesson_id
+    JOIN vws.subjects sub ON l.lesson_subject = sub.subject_id
+    WHERE sd.student_id = p_student_id
+      AND sd.mark IS NOT NULL
+      AND EXTRACT(MONTH FROM l.lesson_date) = EXTRACT(MONTH FROM COALESCE(p_month, CURRENT_DATE))
+      AND EXTRACT(YEAR FROM l.lesson_date) = EXTRACT(YEAR FROM COALESCE(p_month, CURRENT_DATE))
+    ORDER BY l.lesson_date, sub.subject_name;
+END;
+$$;
+
 
 -- Source: FUNCTIONS\get_teacher_salary.sql
 CREATE OR REPLACE FUNCTION get_teacher_salary(
@@ -278,7 +325,7 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 SELECT COUNT(*) * 550
-	FROM Lessons
+	FROM vws.lessons
 	WHERE lesson_teacher = p_teacher_id
 	AND lesson_date BETWEEN p_from AND p_to;
 $$;
@@ -293,8 +340,8 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 	SELECT r.role_name
-	FROM UserRole ur
-	JOIN Roles r ON ur.role_id = r.role_id
+	FROM vws.user_roles ur
+	JOIN vws.roles r ON ur.role_id = r.role_id
 	WHERE ur.user_id = p_user_id;
 $$;
 
@@ -310,8 +357,8 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 	SELECT h.homework_desc
-	FROM Homework h
-	JOIN Lessons l ON h.homework_lesson = l.lesson_id
+	FROM vws.homeworks h
+	JOIN vws.lessons l ON h.homework_lesson = l.lesson_id
 	WHERE h.homework_duedate = p_date
 	AND (p_subject IS NULL OR l.lesson_subject = p_subject);
 $$;
@@ -371,8 +418,8 @@ DECLARE
 BEGIN
     SELECT COUNT(*)::INT
     INTO total
-    FROM StudentData sd
-    JOIN Lessons l ON l.lesson_id = sd.lesson
+    FROM vws.student_data sd
+    JOIN vws.lessons l ON l.lesson_id = sd.lesson
     WHERE sd.student_id = p_student_id
       AND l.lesson_date BETWEEN p_from AND p_to;
 
@@ -389,8 +436,8 @@ BEGIN
             (COUNT(*) FILTER (WHERE sd.status IN ('П','Присутній'))::NUMERIC / total) * 100,
             2
         )
-    FROM StudentData sd
-    JOIN Lessons l ON l.lesson_id = sd.lesson
+    FROM vws.student_data sd
+    JOIN vws.lessons l ON l.lesson_id = sd.lesson
     WHERE sd.student_id = p_student_id
       AND l.lesson_date BETWEEN p_from AND p_to;
 END;
@@ -408,10 +455,10 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 	SELECT l.lesson_name, sd.mark, h.homework_desc
-	FROM Students s
-	JOIN Lessons l ON l.lesson_class = s.student_class
-	LEFT JOIN StudentData sd ON sd.student_id = s.student_id
-	LEFT JOIN Homework h ON h.homework_class = s.student_class
+	FROM vws.students s
+	JOIN vws.lessons l ON l.lesson_class = s.student_class
+	LEFT JOIN vws.student_data sd ON sd.student_id = s.student_id
+	LEFT JOIN vws.homeworks h ON h.homework_class = s.student_class
 	WHERE s.student_id = p_student_id
 	AND l.lesson_date = p_date;
 $$;
@@ -731,7 +778,7 @@ CREATE OR REPLACE PROCEDURE proc_create_lesson(
     IN p_subject integer,
     IN p_material integer,
     IN p_teacher integer,
-    IN p_date date,
+    IN p_date TIMESTAMP WITHOUT TIME ZONE,
     OUT new_lesson_id integer
 )
 LANGUAGE plpgsql
@@ -1912,7 +1959,7 @@ CREATE OR REPLACE PROCEDURE public.proc_update_lesson(
 	IN p_subject integer DEFAULT NULL::integer,
 	IN p_material integer DEFAULT NULL::integer,
 	IN p_teacher integer DEFAULT NULL::integer,
-	IN p_date date DEFAULT NULL::date)
+	IN p_date TIMESTAMP WITHOUT TIME ZONE DEFAULT NULL::TIMESTAMP WITHOUT TIME ZONE)
 LANGUAGE 'plpgsql'
 SECURITY DEFINER
 SET search_path = public, pg_temp
