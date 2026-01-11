@@ -39,7 +39,6 @@ BEGIN
         teacher_user_id  = COALESCE(p_user_id, teacher_user_id)
     WHERE teacher_id = p_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Teacher', 'UPDATE', p_id::text, SESSION_USER, 'Updated teacher');
+    CALL proc_create_audit_log('Teacher', 'UPDATE', p_id::text, 'Updated teacher');
 END;
 $$;

@@ -103,9 +103,8 @@ BEGIN
         p_phone,
         v_user_id
     )
-    RETURNING parent_id INTO new_parent_id;changed_by, details)
-    VALUES ('Parents', 'INSERT', new_parent_id::text, SESSION_USER
-    INSERT INTO AuditLog (table_name, operation, record_id, details)
-    VALUES ('Parents', 'INSERT', new_parent_id::text, 'Created parent');
+    RETURNING parent_id INTO new_parent_id;
+
+    CALL proc_create_audit_log('Parents', 'INSERT', new_parent_id::text, 'Created parent');
 END;
 $$;

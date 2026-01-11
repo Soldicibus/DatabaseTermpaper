@@ -38,7 +38,6 @@ BEGIN
     VALUES (p_subject, p_timetable, p_day_time, p_day_weekday)
     RETURNING day_id INTO new_day_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Days', 'INSERT', new_day_id::text, SESSION_USER, 'Created day');
+    CALL proc_create_audit_log('Days', 'INSERT', new_day_id::text, 'Created day');
 END;
 $$;

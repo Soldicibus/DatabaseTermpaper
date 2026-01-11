@@ -5,7 +5,7 @@ CREATE OR REPLACE PROCEDURE public.proc_update_lesson(
 	IN p_subject integer DEFAULT NULL::integer,
 	IN p_material integer DEFAULT NULL::integer,
 	IN p_teacher integer DEFAULT NULL::integer,
-	IN p_date date DEFAULT NULL::date)
+	IN p_date TIMESTAMP WITHOUT TIME ZONE DEFAULT NULL::TIMESTAMP WITHOUT TIME ZONE)
 LANGUAGE 'plpgsql'
 SECURITY DEFINER
 SET search_path = public, pg_temp
@@ -62,7 +62,6 @@ BEGIN
         lesson_date     = COALESCE(p_date, lesson_date)
     WHERE lesson_id = p_lesson_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Lessons', 'UPDATE', p_lesson_id::text, SESSION_USER, 'Updated lesson');
+    CALL proc_create_audit_log('Lessons', 'UPDATE', p_lesson_id::text, 'Updated lesson');
 END;
 $$;

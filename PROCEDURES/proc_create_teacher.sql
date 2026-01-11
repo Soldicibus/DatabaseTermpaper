@@ -44,7 +44,6 @@ BEGIN
     )
     RETURNING teacher_id INTO new_teacher_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Teacher', 'INSERT', new_teacher_id::text, SESSION_USER, 'Created teacher');
+    CALL proc_create_audit_log('Teacher', 'INSERT', new_teacher_id::text, 'Created teacher');
 END;
 $$;

@@ -17,7 +17,6 @@ BEGIN
         journal_name = COALESCE(p_journal_name, journal_name)
     WHERE journal_id = p_journal_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Journal', 'UPDATE', p_journal_id::TEXT, SESSION_USER, 'Updated journal ' || p_journal_id);
+    CALL proc_create_audit_log('Journal', 'UPDATE', p_journal_id::TEXT, 'Updated journal ' || p_journal_id);
 END;
 $$;

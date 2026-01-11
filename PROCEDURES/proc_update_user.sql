@@ -34,18 +34,16 @@ BEGIN
         USING ERRCODE = '23505';
     END IF;
 
-    IF p_password IS NOT NULL THEN
-	    p_password := crypt(p_password, gen_salt('bf'));
-	END IF;
-
     UPDATE users
     SET
         username = COALESCE(p_username, username),
-        email    = COALESCE(p_email, email),
-        password = COALESCE(p_password, password)
+        email    = COALESCE(p_email, email)
     WHERE user_id = p_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Users', 'UPDATE', p_id::text, SESSION_USER, 'Updated user');
+    IF p_password IS NOT NULL THEN
+	    CALL proc_reset_user_password(p_id::integer, p_password::varchar);
+	END IF;
+
+    CALL proc_create_audit_log('Users', 'UPDATE', p_id::text, 'Updated user');
 END;
 $$;

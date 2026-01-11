@@ -32,7 +32,6 @@ BEGIN
     INSERT INTO userrole (user_id, role_id)
     VALUES (p_user_id, p_role_id);
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('UserRole', 'INSERT', p_user_id || ',' || p_role_id, SESSION_USER, 'Assigned role to user');
+    CALL proc_create_audit_log('UserRole', 'INSERT', p_user_id || ',' || p_role_id, 'Assigned role to user');
 END;
 $$;

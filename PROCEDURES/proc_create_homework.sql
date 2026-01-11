@@ -74,7 +74,6 @@ BEGIN
     )
     RETURNING homework_id INTO new_homework_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Homework', 'INSERT', new_homework_id::text, SESSION_USER, 'Created homework');
+    CALL proc_create_audit_log('Homework', 'INSERT', new_homework_id::text, 'Created homework');
 END;
 $$;

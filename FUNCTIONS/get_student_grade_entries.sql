@@ -1,11 +1,11 @@
 CREATE OR REPLACE FUNCTION get_student_grade_entries(
     p_student_id INT,
-    p_start_date DATE DEFAULT (CURRENT_DATE - INTERVAL '2 days')::DATE,
-    p_end_date DATE DEFAULT (CURRENT_DATE + INTERVAL '7 days')::DATE
+    p_start_date TIMESTAMP WITHOUT TIME ZONE DEFAULT (CURRENT_DATE - INTERVAL '2 days')::TIMESTAMP WITHOUT TIME ZONE,
+    p_end_date TIMESTAMP WITHOUT TIME ZONE DEFAULT (CURRENT_DATE + INTERVAL '7 days')::TIMESTAMP WITHOUT TIME ZONE
 )
 RETURNS TABLE (
     lesson_id INT,
-    lesson_date DATE,
+    lesson_date TIMESTAMP WITHOUT TIME ZONE,
     subject_name TEXT,
     data_id INT,
     mark SMALLINT,
@@ -19,7 +19,7 @@ AS $$
 	l.lesson_id,
         l.lesson_date,
         s.subject_name,
-	s.data_id,
+	sd.data_id,
         sd.mark,
         sd.status
     FROM StudentData sd

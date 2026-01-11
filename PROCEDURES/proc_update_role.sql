@@ -17,7 +17,6 @@ BEGIN
         role_desc = COALESCE(p_role_desc, role_desc)
     WHERE role_id = p_role_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Roles', 'UPDATE', p_role_id::TEXT, SESSION_USER, 'Updated role ' || p_role_id);
+    CALL proc_create_audit_log('Roles', 'UPDATE', p_role_id::TEXT, 'Updated role ' || p_role_id);
 END;
 $$;

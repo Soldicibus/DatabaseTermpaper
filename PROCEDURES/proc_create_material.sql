@@ -22,7 +22,6 @@ BEGIN
     VALUES (p_name, p_desc, p_link)
     RETURNING material_id INTO new_material_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Material', 'INSERT', new_material_id::text, SESSION_USER, 'Created material');
+    CALL proc_create_audit_log('Material', 'INSERT', new_material_id::text, 'Created material');
 END;
 $$;

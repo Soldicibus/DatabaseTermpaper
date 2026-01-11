@@ -12,7 +12,6 @@ BEGIN
 
     DELETE FROM Class WHERE class_name = p_class_name;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Class', 'DELETE', p_class_name, SESSION_USER, 'Deleted class ' || p_class_name);
+    CALL proc_create_audit_log('Class', 'DELETE', p_class_name::TEXT, 'Deleted class ' || p_class_name);
 END;
 $$;

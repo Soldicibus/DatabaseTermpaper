@@ -6,7 +6,7 @@ DROP FUNCTION IF EXISTS absents_more_than_x(p_class VARCHAR, p_x INT) CASCADE;
 DROP FUNCTION IF EXISTS get_children_by_parent(p_parent_id INT) CASCADE;
 DROP FUNCTION IF EXISTS get_data_by_user_id(p_user_id INT) CASCADE;
 DROP FUNCTION IF EXISTS get_homework_by_date_class(p_class VARCHAR, p_date DATE) CASCADE;
-DROP FUNCTION IF EXISTS get_student_grade_entries(p_student_id INT, p_start_date DATE, p_end_date DATE) CASCADE;
+DROP FUNCTION IF EXISTS get_student_grade_entries(p_student_id INT, p_start_date TIMESTAMP WITHOUT TIME ZONE, p_end_date TIMESTAMP WITHOUT TIME ZONE) CASCADE;
 DROP FUNCTION IF EXISTS get_student_marks(p_student_id INT, p_from DATE, p_to DATE) CASCADE;
 DROP FUNCTION IF EXISTS get_teacher_salary(p_teacher_id INT, p_from DATE, p_to DATE) CASCADE;
 DROP FUNCTION IF EXISTS get_user_role(p_user_id INT) CASCADE;
@@ -17,41 +17,56 @@ DROP FUNCTION IF EXISTS student_day_plan(p_student_id INT, p_date DATE) CASCADE;
 DROP FUNCTION IF EXISTS translit_uk_to_lat(p_text TEXT) CASCADE;
 DROP PROCEDURE IF EXISTS proc_assign_role_to_user(IN p_user_id integer, IN p_role_id integer) CASCADE;
 DROP PROCEDURE IF EXISTS proc_assign_student_parent(IN p_student_id integer, IN p_parent_id integer) CASCADE;
+DROP PROCEDURE IF EXISTS proc_create_audit_log(IN p_table_name VARCHAR, IN p_operation VARCHAR, IN p_record_id TEXT, IN p_details TEXT) CASCADE;
+DROP PROCEDURE IF EXISTS proc_create_class(IN p_class_name VARCHAR(10), IN p_class_journal_id INT, IN p_class_mainTeacher INT) CASCADE;
 DROP PROCEDURE IF EXISTS proc_create_day(IN p_subject integer, IN p_timetable integer, IN p_day_time time, IN p_day_weekday varchar(20), OUT new_day_id integer) CASCADE;
 DROP PROCEDURE IF EXISTS proc_create_homework(INOUT p_name varchar(100), IN p_teacher integer, IN p_lesson integer, INOUT p_duedate date, INOUT p_desc text, IN p_class varchar(10), OUT new_homework_id integer) CASCADE;
+DROP PROCEDURE IF EXISTS proc_create_journal(IN p_journal_teacher INT, IN p_journal_name VARCHAR(50)) CASCADE;
 DROP PROCEDURE IF EXISTS proc_create_lesson(IN p_name varchar(50), IN p_class varchar(10), IN p_subject integer, IN p_material integer, IN p_teacher integer, IN p_date date, OUT new_lesson_id integer) CASCADE;
 DROP PROCEDURE IF EXISTS proc_create_material(IN p_name varchar(100), IN p_desc text, IN p_link text, OUT new_material_id integer) CASCADE;
 DROP PROCEDURE IF EXISTS proc_create_parent(IN p_name VARCHAR(50), IN p_surname VARCHAR(50), IN p_patronym VARCHAR(50), IN p_phone VARCHAR(20), IN p_user_id INTEGER, OUT new_parent_id INTEGER, OUT generated_password TEXT) CASCADE;
+DROP PROCEDURE IF EXISTS proc_create_role(IN p_role_name VARCHAR(10), IN p_role_desc TEXT) CASCADE;
 DROP PROCEDURE IF EXISTS proc_create_student(IN p_name VARCHAR(50), IN p_surname VARCHAR(50), IN p_patronym VARCHAR(50), IN p_phone VARCHAR(20), IN p_user_id INTEGER, IN p_class varchar(10), OUT new_student_id INTEGER, OUT generated_password TEXT) CASCADE;
 DROP PROCEDURE IF EXISTS proc_create_studentdata(IN p_journal_id integer, IN p_student_id integer, IN p_lesson integer, IN p_mark smallint, IN p_status journal_status_enum, INOUT p_note text, OUT new_data_id integer) CASCADE;
+DROP PROCEDURE IF EXISTS proc_create_subject(IN p_subject_name TEXT, IN p_cabinet INT, IN p_subject_program TEXT) CASCADE;
 DROP PROCEDURE IF EXISTS proc_create_teacher(IN p_name varchar(50), IN p_surname varchar(50), IN p_patronym varchar(50), IN p_phone varchar(20), IN p_user_id integer, OUT new_teacher_id integer) CASCADE;
+DROP PROCEDURE IF EXISTS proc_create_timetable(IN p_timetable_name VARCHAR(20), IN p_timetable_class VARCHAR(10)) CASCADE;
 DROP PROCEDURE IF EXISTS proc_create_user(IN p_username varchar(50), IN p_email varchar(60), IN p_password varchar(50), OUT new_user_id integer) CASCADE;
-DROP PROCEDURE IF EXISTS proc_delete_day(IN p_id integer) CASCADE;
+DROP PROCEDURE IF EXISTS proc_delete_class(IN p_class_name VARCHAR(10)) CASCADE;
 DROP PROCEDURE IF EXISTS proc_delete_day(IN p_id integer) CASCADE;
 DROP PROCEDURE IF EXISTS proc_delete_homework(IN p_id integer) CASCADE;
+DROP PROCEDURE IF EXISTS proc_delete_journal(IN p_journal_id INT) CASCADE;
 DROP PROCEDURE IF EXISTS proc_delete_lesson(IN p_id integer) CASCADE;
 DROP PROCEDURE IF EXISTS proc_delete_material(IN p_id integer) CASCADE;
 DROP PROCEDURE IF EXISTS proc_delete_parent(IN p_id integer) CASCADE;
+DROP PROCEDURE IF EXISTS proc_delete_role(IN p_role_id INT) CASCADE;
 DROP PROCEDURE IF EXISTS proc_delete_student(IN p_id integer) CASCADE;
 DROP PROCEDURE IF EXISTS proc_delete_studentdata(IN p_id integer) CASCADE;
+DROP PROCEDURE IF EXISTS proc_delete_subject(IN p_subject_id INT) CASCADE;
 DROP PROCEDURE IF EXISTS proc_delete_teacher(IN p_id integer) CASCADE;
+DROP PROCEDURE IF EXISTS proc_delete_timetable(IN p_timetable_id INT) CASCADE;
 DROP PROCEDURE IF EXISTS proc_delete_user(IN p_id integer) CASCADE;
 DROP PROCEDURE IF EXISTS proc_register_user(IN p_username VARCHAR(50), IN p_email VARCHAR(60), IN p_password TEXT, OUT new_user_id INT) CASCADE;
 DROP PROCEDURE IF EXISTS proc_remove_role_from_user(IN p_user_id integer, IN p_role_id integer) CASCADE;
 DROP PROCEDURE IF EXISTS proc_reset_user_password(IN p_user_id integer, IN p_new_password varchar(50)) CASCADE;
 DROP PROCEDURE IF EXISTS proc_unassign_student_parent(IN p_student_id integer, IN p_parent_id integer) CASCADE;
+DROP PROCEDURE IF EXISTS proc_update_class(IN p_class_name VARCHAR(10), IN p_class_journal_id INT, IN p_class_mainTeacher INT) CASCADE;
 DROP PROCEDURE IF EXISTS proc_update_day(IN p_id integer, IN p_subject integer, IN p_timetable integer, IN p_time time, IN p_weekday varchar(20)) CASCADE;
 DROP PROCEDURE IF EXISTS proc_update_homework(IN p_id integer, IN p_name varchar(100), IN p_teacher integer, IN p_lesson integer, IN p_duedate date, IN p_desc text, IN p_class varchar(10)) CASCADE;
+DROP PROCEDURE IF EXISTS proc_update_journal(IN p_journal_id INT, IN p_journal_teacher INT, IN p_journal_name VARCHAR(50)) CASCADE;
 DROP PROCEDURE IF EXISTS proc_update_material(IN p_id integer, IN p_name varchar(100), IN p_desc text, IN p_link text) CASCADE;
 DROP PROCEDURE IF EXISTS proc_update_parent(IN p_id integer, IN p_name varchar(50), IN p_surname varchar(50), IN p_patronym varchar(50), IN p_phone varchar(20), IN p_user_id integer) CASCADE;
+DROP PROCEDURE IF EXISTS proc_update_role(IN p_role_id INT, IN p_role_name VARCHAR(10), IN p_role_desc TEXT) CASCADE;
 DROP PROCEDURE IF EXISTS proc_update_student(IN p_id integer, IN p_name varchar(50), IN p_surname varchar(50), IN p_patronym varchar(50), IN p_phone varchar(20), IN p_user_id integer, IN p_class varchar(10)) CASCADE;
 DROP PROCEDURE IF EXISTS proc_update_studentdata(IN p_id integer, IN p_journal_id integer, IN p_student_id integer, IN p_lesson integer, IN p_mark smallint, IN p_status journal_status_enum, IN p_note text) CASCADE;
+DROP PROCEDURE IF EXISTS proc_update_subject(IN p_subject_id INT, IN p_subject_name TEXT, IN p_cabinet INT, IN p_subject_program TEXT) CASCADE;
 DROP PROCEDURE IF EXISTS proc_update_teacher(IN p_id integer, IN p_name varchar(50), IN p_surname varchar(50), IN p_patronym varchar(50), IN p_phone varchar(20), IN p_user_id integer) CASCADE;
+DROP PROCEDURE IF EXISTS proc_update_timetable(IN p_timetable_id INT, IN p_timetable_name VARCHAR(20), IN p_timetable_class VARCHAR(10)) CASCADE;
 DROP PROCEDURE IF EXISTS proc_update_user(IN p_id integer, IN p_username varchar(50), IN p_email varchar(60), IN p_password varchar(50)) CASCADE;
 DROP PROCEDURE IF EXISTS public.proc_update_lesson(IN p_lesson_id integer, IN p_name character varying, IN p_class character varying, IN p_subject integer, IN p_material integer, IN p_teacher integer, IN p_date date) CASCADE;
 
 -- Definitions
--- Source: FUNCTIONS/absents_more_than_x.sql
+-- Source: FUNCTIONS\absents_more_than_x.sql
 CREATE OR REPLACE FUNCTION absents_more_than_x(
     p_class VARCHAR,
     p_x INT
@@ -71,7 +86,7 @@ AS $$
 $$;
 
 
--- Source: FUNCTIONS/get_children_by_parent.sql
+-- Source: FUNCTIONS\get_children_by_parent.sql
 CREATE OR REPLACE FUNCTION get_children_by_parent(
     p_parent_id INT
 )
@@ -109,7 +124,7 @@ AS $$
 $$;
 
 
--- Source: FUNCTIONS/get_data_by_user_id.sql
+-- Source: FUNCTIONS\get_data_by_user_id.sql
 CREATE OR REPLACE FUNCTION get_data_by_user_id(
     p_user_id INT
 )
@@ -180,7 +195,7 @@ BEGIN
 END;
 $$;
 
--- Source: FUNCTIONS/get_homework_by_date_class.sql
+-- Source: FUNCTIONS\get_homework_by_date_class.sql
 CREATE OR REPLACE FUNCTION get_homework_by_date_class(
     p_class VARCHAR,
     p_date DATE
@@ -197,15 +212,15 @@ AS $$
 $$;
 
 
--- Source: FUNCTIONS/get_student_grade_entries.sql
+-- Source: FUNCTIONS\get_student_grade_entries.sql
 CREATE OR REPLACE FUNCTION get_student_grade_entries(
     p_student_id INT,
-    p_start_date DATE DEFAULT (CURRENT_DATE - INTERVAL '2 days')::DATE,
-    p_end_date DATE DEFAULT (CURRENT_DATE + INTERVAL '7 days')::DATE
+    p_start_date TIMESTAMP WITHOUT TIME ZONE DEFAULT (CURRENT_DATE - INTERVAL '2 days')::TIMESTAMP WITHOUT TIME ZONE,
+    p_end_date TIMESTAMP WITHOUT TIME ZONE DEFAULT (CURRENT_DATE + INTERVAL '7 days')::TIMESTAMP WITHOUT TIME ZONE
 )
 RETURNS TABLE (
     lesson_id INT,
-    lesson_date DATE,
+    lesson_date TIMESTAMP WITHOUT TIME ZONE,
     subject_name TEXT,
     data_id INT,
     mark SMALLINT,
@@ -231,7 +246,7 @@ AS $$
     ORDER BY l.lesson_date DESC, s.subject_name;
 $$;
 
--- Source: FUNCTIONS/get_student_marks.sql
+-- Source: FUNCTIONS\get_student_marks.sql
 CREATE OR REPLACE FUNCTION get_student_marks(
     p_student_id INT,
     p_from DATE DEFAULT CURRENT_DATE - INTERVAL '1 month',
@@ -251,7 +266,7 @@ AS $$
 	  AND l.lesson_date BETWEEN p_from AND p_to;
 $$;
 
--- Source: FUNCTIONS/get_teacher_salary.sql
+-- Source: FUNCTIONS\get_teacher_salary.sql
 CREATE OR REPLACE FUNCTION get_teacher_salary(
     p_teacher_id INT,
     p_from DATE DEFAULT CURRENT_DATE - INTERVAL '1 month',
@@ -268,7 +283,7 @@ SELECT COUNT(*) * 550
 	AND lesson_date BETWEEN p_from AND p_to;
 $$;
 
--- Source: FUNCTIONS/get_user_role.sql
+-- Source: FUNCTIONS\get_user_role.sql
 CREATE OR REPLACE FUNCTION get_user_role(
     p_user_id INT
 )
@@ -284,7 +299,7 @@ AS $$
 $$;
 
 
--- Source: FUNCTIONS/homework_by_date_subject.sql
+-- Source: FUNCTIONS\homework_by_date_subject.sql
 CREATE OR REPLACE FUNCTION homework_by_date_subject(
     p_date DATE,
     p_subject INT DEFAULT NULL
@@ -302,7 +317,7 @@ AS $$
 $$;
 
 
--- Source: FUNCTIONS/login_user.sql
+-- Source: FUNCTIONS\login_user.sql
 CREATE OR REPLACE FUNCTION login_user(
     p_login TEXT,   -- username OR email
     p_password TEXT
@@ -322,7 +337,7 @@ BEGIN
         u.user_id,
         u.username,
         u.email
-    FROM users u
+    FROM vws_user_auth_info u
     WHERE
         (u.username = p_login OR u.email = p_login)
         AND u.password = crypt(p_password, u.password);
@@ -336,7 +351,7 @@ $$;
 
 
 
--- Source: FUNCTIONS/student_attendance_report.sql
+-- Source: FUNCTIONS\student_attendance_report.sql
 CREATE OR REPLACE FUNCTION student_attendance_report(
     p_student_id INT,
     p_from DATE DEFAULT CURRENT_DATE,
@@ -382,7 +397,7 @@ END;
 $$;
 
 
--- Source: FUNCTIONS/student_day_plan.sql
+-- Source: FUNCTIONS\student_day_plan.sql
 CREATE OR REPLACE FUNCTION student_day_plan(
     p_student_id INT,
     p_date DATE
@@ -402,7 +417,7 @@ AS $$
 $$;
 
 
--- Source: FUNCTIONS/translit_uk_to_lat.sql
+-- Source: FUNCTIONS\translit_uk_to_lat.sql
 CREATE OR REPLACE FUNCTION translit_uk_to_lat(p_text TEXT)
 RETURNS TEXT
 LANGUAGE plpgsql
@@ -439,7 +454,7 @@ END;
 $$;
 
 
--- Source: PROCEDURES/proc_assign_role_to_user.sql
+-- Source: PROCEDURES\proc_assign_role_to_user.sql
 CREATE OR REPLACE PROCEDURE proc_assign_role_to_user(
     IN p_user_id integer,
     IN p_role_id integer
@@ -474,12 +489,11 @@ BEGIN
     INSERT INTO userrole (user_id, role_id)
     VALUES (p_user_id, p_role_id);
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('UserRole', 'INSERT', p_user_id || ',' || p_role_id, SESSION_USER, 'Assigned role to user');
+    CALL proc_create_audit_log('UserRole', 'INSERT', p_user_id || ',' || p_role_id, 'Assigned role to user');
 END;
 $$;
 
--- Source: PROCEDURES/proc_assign_student_parent.sql
+-- Source: PROCEDURES\proc_assign_student_parent.sql
 CREATE OR REPLACE PROCEDURE proc_assign_student_parent(
     IN p_student_id integer,
     IN p_parent_id integer
@@ -510,12 +524,62 @@ BEGIN
     INSERT INTO studentparent(student_id_ref, parent_id_ref)
     VALUES (p_student_id, p_parent_id);
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('StudentParent', 'INSERT', p_student_id || ',' || p_parent_id, SESSION_USER, 'Assigned student to parent');
+    CALL proc_create_audit_log('StudentParent', 'INSERT', p_student_id || ',' || p_parent_id, 'Assigned student to parent');
 END;
 $$;
 
--- Source: PROCEDURES/proc_create_day.sql
+-- Source: PROCEDURES\proc_create_audit_log.sql
+CREATE OR REPLACE PROCEDURE proc_create_audit_log(
+	IN p_table_name VARCHAR, 
+	IN p_operation VARCHAR, 
+	IN p_record_id TEXT,
+	IN p_details TEXT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+    IF p_table_name IS NULL OR p_operation IS NULL THEN
+        RAISE EXCEPTION 'Table name and operation type are required for auditing.'
+        USING ERRCODE = '22004';
+    END IF;
+
+    IF length(p_table_name) > 50 THEN
+        RAISE EXCEPTION 'Table name exceeds 50 characters.'
+        USING ERRCODE = '22001';
+    END IF;
+
+    IF length(p_operation) > 20 THEN
+        RAISE EXCEPTION 'Operation type exceeds 20 characters.'
+        USING ERRCODE = '22001';
+    END IF;
+	
+	INSERT INTO AuditLog (table_name, operation, record_id, details)
+    VALUES (p_table_name, p_operation, p_record_id, p_details);
+END;
+$$;
+
+-- Source: PROCEDURES\proc_create_class.sql
+CREATE OR REPLACE PROCEDURE proc_create_class(
+    IN p_class_name VARCHAR(10),
+    IN p_class_journal_id INT,
+    IN p_class_mainTeacher INT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+    INSERT INTO Class (class_name, class_journal_id, class_mainTeacher)
+    VALUES (p_class_name, p_class_journal_id, p_class_mainTeacher);
+
+    CALL proc_create_audit_log('Class', 'INSERT', p_class_name::TEXT, 'Created class ' || p_class_name);
+END;
+$$;
+
+
+-- Source: PROCEDURES\proc_create_day.sql
 CREATE OR REPLACE PROCEDURE proc_create_day(
     IN p_subject integer,
 	IN p_timetable integer,
@@ -556,12 +620,11 @@ BEGIN
     VALUES (p_subject, p_timetable, p_day_time, p_day_weekday)
     RETURNING day_id INTO new_day_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Days', 'INSERT', new_day_id::text, SESSION_USER, 'Created day');
+    CALL proc_create_audit_log('Days', 'INSERT', new_day_id::text, 'Created day');
 END;
 $$;
 
--- Source: PROCEDURES/proc_create_homework.sql
+-- Source: PROCEDURES\proc_create_homework.sql
 CREATE OR REPLACE PROCEDURE proc_create_homework(
     INOUT p_name varchar(100),
     IN p_teacher integer,
@@ -638,13 +701,30 @@ BEGIN
     )
     RETURNING homework_id INTO new_homework_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Homework', 'INSERT', new_homework_id::text, SESSION_USER, 'Created homework');
+    CALL proc_create_audit_log('Homework', 'INSERT', new_homework_id::text, 'Created homework');
 END;
 $$;
 
 
--- Source: PROCEDURES/proc_create_lesson.sql
+-- Source: PROCEDURES\proc_create_journal.sql
+CREATE OR REPLACE PROCEDURE proc_create_journal(
+    IN p_journal_teacher INT,
+    IN p_journal_name VARCHAR(50)
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+    INSERT INTO Journal (journal_teacher, journal_name)
+    VALUES (p_journal_teacher, p_journal_name);
+
+    CALL proc_create_audit_log('Journal', 'INSERT', p_journal_name, 'Created journal ' || p_journal_name);
+END;
+$$;
+
+
+-- Source: PROCEDURES\proc_create_lesson.sql
 CREATE OR REPLACE PROCEDURE proc_create_lesson(
     IN p_name varchar(50),
     IN p_class varchar(10),
@@ -683,13 +763,12 @@ BEGIN
     VALUES (p_name, p_class, p_subject, p_material, p_teacher, COALESCE(p_date, CURRENT_DATE))
     RETURNING lesson_id INTO new_lesson_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Lessons', 'INSERT', new_lesson_id::text, SESSION_USER, 'Created lesson');
+    CALL proc_create_audit_log('Lessons', 'INSERT', new_lesson_id::text, 'Created lesson');
 END;
 $$;
 
 
--- Source: PROCEDURES/proc_create_material.sql
+-- Source: PROCEDURES\proc_create_material.sql
 CREATE OR REPLACE PROCEDURE proc_create_material(
     IN p_name varchar(100),
     IN p_desc text,
@@ -714,13 +793,12 @@ BEGIN
     VALUES (p_name, p_desc, p_link)
     RETURNING material_id INTO new_material_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Material', 'INSERT', new_material_id::text, SESSION_USER, 'Created material');
+    CALL proc_create_audit_log('Material', 'INSERT', new_material_id::text, 'Created material');
 END;
 $$;
 
 
--- Source: PROCEDURES/proc_create_parent.sql
+-- Source: PROCEDURES\proc_create_parent.sql
 CREATE OR REPLACE PROCEDURE proc_create_parent(
     IN p_name VARCHAR(50),
     IN p_surname VARCHAR(50),
@@ -827,13 +905,31 @@ BEGIN
         v_user_id
     )
     RETURNING parent_id INTO new_parent_id;
-	INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Parent', 'INSERT', new_parent_id::text, SESSION_USER, 'Created parent');
+
+    CALL proc_create_audit_log('Parents', 'INSERT', new_parent_id::text, 'Created parent');
 END;
 $$;
 
 
--- Source: PROCEDURES/proc_create_student.sql
+-- Source: PROCEDURES\proc_create_role.sql
+CREATE OR REPLACE PROCEDURE proc_create_role(
+    IN p_role_name VARCHAR(10),
+    IN p_role_desc TEXT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+    INSERT INTO Roles (role_name, role_desc)
+    VALUES (p_role_name, p_role_desc);
+
+    CALL proc_create_audit_log('Roles', 'INSERT', p_role_name, 'Created role ' || p_role_name);
+END;
+$$;
+
+
+-- Source: PROCEDURES\proc_create_student.sql
 CREATE OR REPLACE PROCEDURE proc_create_student(
     IN p_name VARCHAR(50),
     IN p_surname VARCHAR(50),
@@ -950,13 +1046,13 @@ BEGIN
 		p_class
     )
     RETURNING student_id INTO new_student_id;
-	INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Student', 'INSERT', new_student_id::text, SESSION_USER, 'Created student');
+
+    CALL proc_create_audit_log('Students', 'INSERT', new_student_id::text, 'Created student');
 END;
 $$;
 
 
--- Source: PROCEDURES/proc_create_studentdata.sql
+-- Source: PROCEDURES\proc_create_studentdata.sql
 CREATE OR REPLACE PROCEDURE proc_create_studentdata(
     IN p_journal_id integer,
     IN p_student_id integer,
@@ -1017,13 +1113,31 @@ BEGIN
     )
     RETURNING data_id INTO new_data_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('StudentData', 'INSERT', new_data_id::text, SESSION_USER, 'Created student data');
+    CALL proc_create_audit_log('StudentData', 'INSERT', new_data_id::text, 'Created student data');
 END;
 $$;
 
 
--- Source: PROCEDURES/proc_create_teacher.sql
+-- Source: PROCEDURES\proc_create_subject.sql
+CREATE OR REPLACE PROCEDURE proc_create_subject(
+    IN p_subject_name TEXT,
+    IN p_cabinet INT,
+    IN p_subject_program TEXT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+    INSERT INTO Subjects (subject_name, cabinet, subject_program)
+    VALUES (p_subject_name, p_cabinet, p_subject_program);
+
+    CALL proc_create_audit_log('Subjects', 'INSERT', p_subject_name, 'Created subject ' || p_subject_name);
+END;
+$$;
+
+
+-- Source: PROCEDURES\proc_create_teacher.sql
 CREATE OR REPLACE PROCEDURE proc_create_teacher(
     IN p_name varchar(50),
     IN p_surname varchar(50),
@@ -1070,12 +1184,29 @@ BEGIN
     )
     RETURNING teacher_id INTO new_teacher_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Teacher', 'INSERT', new_teacher_id::text, SESSION_USER, 'Created teacher');
+    CALL proc_create_audit_log('Teacher', 'INSERT', new_teacher_id::text, 'Created teacher');
 END;
 $$;
 
--- Source: PROCEDURES/proc_create_user.sql
+-- Source: PROCEDURES\proc_create_timetable.sql
+CREATE OR REPLACE PROCEDURE proc_create_timetable(
+    IN p_timetable_name VARCHAR(20),
+    IN p_timetable_class VARCHAR(10)
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+    INSERT INTO Timetable (timetable_name, timetable_class)
+    VALUES (p_timetable_name, p_timetable_class);
+
+    CALL proc_create_audit_log('Timetable', 'INSERT', p_timetable_name, 'Created timetable ' || p_timetable_name);
+END;
+$$;
+
+
+-- Source: PROCEDURES\proc_create_user.sql
 CREATE OR REPLACE PROCEDURE proc_create_user(
     IN p_username varchar(50),
     IN p_email varchar(60),
@@ -1124,12 +1255,31 @@ BEGIN
     VALUES (p_username, p_email, p_password)
     RETURNING user_id INTO new_user_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Users', 'INSERT', new_user_id::text, SESSION_USER, 'Created user');
+    CALL proc_create_audit_log('Users', 'INSERT', new_user_id::text, 'Created user');
 END;
 $$;
 
--- Source: PROCEDURES/proc_delete_day.sql
+-- Source: PROCEDURES\proc_delete_class.sql
+CREATE OR REPLACE PROCEDURE proc_delete_class(
+    IN p_class_name VARCHAR(10)
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM Class WHERE class_name = p_class_name) THEN
+        RAISE EXCEPTION 'Class % does not exist', p_class_name;
+    END IF;
+
+    DELETE FROM Class WHERE class_name = p_class_name;
+
+    CALL proc_create_audit_log('Class', 'DELETE', p_class_name::TEXT, 'Deleted class ' || p_class_name);
+END;
+$$;
+
+
+-- Source: PROCEDURES\proc_delete_day.sql
 CREATE OR REPLACE PROCEDURE proc_delete_day(
     IN p_id integer
 )
@@ -1145,13 +1295,71 @@ BEGIN
 
     DELETE FROM days WHERE day_id = p_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Days', 'DELETE', p_id::text, SESSION_USER, 'Deleted day');
+    CALL proc_create_audit_log('Days', 'DELETE', p_id::text, 'Deleted day');
+END;
+$$;
+
+-- Source: PROCEDURES\proc_delete_homework.sql
+CREATE OR REPLACE PROCEDURE proc_delete_homework(
+    IN p_id integer
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM vws_homeworks WHERE homework_id = p_id) THEN
+        RAISE EXCEPTION 'Homework % does not exist', p_id
+        USING ERRCODE = '22003';
+    END IF;
+
+    DELETE FROM homework WHERE homework_id = p_id;
+
+    CALL proc_create_audit_log('Homework', 'DELETE', p_id::text, 'Deleted homework');
+END;
+$$;
+
+-- Source: PROCEDURES\proc_delete_journal.sql
+CREATE OR REPLACE PROCEDURE proc_delete_journal(
+    IN p_journal_id INT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM Journal WHERE journal_id = p_journal_id) THEN
+        RAISE EXCEPTION 'Journal with ID % does not exist', p_journal_id;
+    END IF;
+
+    DELETE FROM Journal WHERE journal_id = p_journal_id;
+
+    CALL proc_create_audit_log('Journal', 'DELETE', p_journal_id::TEXT, 'Deleted journal ' || p_journal_id);
 END;
 $$;
 
 
--- Source: PROCEDURES/proc_delete_material.sql
+-- Source: PROCEDURES\proc_delete_lesson.sql
+CREATE OR REPLACE PROCEDURE proc_delete_lesson(
+    IN p_id integer
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM vws_lessons WHERE lesson_id = p_id) THEN
+        RAISE EXCEPTION 'Lesson % does not exist', p_id
+        USING ERRCODE = '22003';
+    END IF;
+
+    DELETE FROM lessons WHERE lesson_id = p_id;
+
+    CALL proc_create_audit_log('Lessons', 'DELETE', p_id::text, 'Deleted lesson');
+END;
+$$;
+
+-- Source: PROCEDURES\proc_delete_material.sql
 CREATE OR REPLACE PROCEDURE proc_delete_material(
     IN p_id integer
 )
@@ -1167,12 +1375,11 @@ BEGIN
 
     DELETE FROM material WHERE material_id = p_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Material', 'DELETE', p_id::text, SESSION_USER, 'Deleted material');
+    CALL proc_create_audit_log('Material', 'DELETE', p_id::text, 'Deleted material');
 END;
 $$;
 
--- Source: PROCEDURES/proc_delete_parent.sql
+-- Source: PROCEDURES\proc_delete_parent.sql
 CREATE OR REPLACE PROCEDURE proc_delete_parent(
     IN p_id integer
 )
@@ -1194,8 +1401,7 @@ BEGIN
 
     DELETE FROM parents WHERE parent_id = p_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Parents', 'DELETE', p_id::text, SESSION_USER, 'Deleted parent');
+    CALL proc_create_audit_log('Parents', 'DELETE', p_id::text, 'Deleted parent');
 
     IF v_user_id IS NOT NULL THEN
         PERFORM proc_delete_user(v_user_id);
@@ -1204,104 +1410,30 @@ END;
 $$;
 
 
--- Source: PROCEDURES/proc_delete_procedures.sql
-CREATE OR REPLACE PROCEDURE proc_delete_day(
-    IN p_id integer
+-- Source: PROCEDURES\proc_delete_procedures.sql
+
+
+-- Source: PROCEDURES\proc_delete_role.sql
+CREATE OR REPLACE PROCEDURE proc_delete_role(
+    IN p_role_id INT
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM vws_days WHERE day_id = p_id) THEN
-        RAISE EXCEPTION 'Day % does not exist', p_id
-        USING ERRCODE = '22003';
+    IF NOT EXISTS (SELECT 1 FROM Roles WHERE role_id = p_role_id) THEN
+        RAISE EXCEPTION 'Role with ID % does not exist', p_role_id;
     END IF;
 
-    DELETE FROM days WHERE day_id = p_id;
+    DELETE FROM Roles WHERE role_id = p_role_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Days', 'DELETE', p_id::text, SESSION_USER, 'Deleted day');
-END;
-$$;
-CREATE OR REPLACE PROCEDURE proc_delete_lesson(
-    IN p_id integer
-)
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, pg_temp
-AS $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM vws_lessons WHERE lesson_id = p_id) THEN
-        RAISE EXCEPTION 'Lesson % does not exist', p_id
-        USING ERRCODE = '22003';
-    END IF;
-
-    DELETE FROM lessons WHERE lesson_id = p_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Lessons', 'DELETE', p_id::text, SESSION_USER, 'Deleted lesson');
-END;
-$$;
-CREATE OR REPLACE PROCEDURE proc_delete_homework(
-    IN p_id integer
-)
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, pg_temp
-AS $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM vws_homeworks WHERE homework_id = p_id) THEN
-        RAISE EXCEPTION 'Homework % does not exist', p_id
-        USING ERRCODE = '22003';
-    END IF;
-
-    DELETE FROM homework WHERE homework_id = p_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Homework', 'DELETE', p_id::text, SESSION_USER, 'Deleted homework');
-END;
-$$;
-CREATE OR REPLACE PROCEDURE proc_delete_studentdata(
-    IN p_id integer
-)
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, pg_temp
-AS $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM vws_student_data WHERE data_id = p_id) THEN
-        RAISE EXCEPTION 'StudentData % does not exist', p_id
-        USING ERRCODE = '22003';
-    END IF;
-
-    DELETE FROM studentdata WHERE data_id = p_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('StudentData', 'DELETE', p_id::text, SESSION_USER, 'Deleted student data');
-END;
-$$;
-CREATE OR REPLACE PROCEDURE proc_delete_user(
-    IN p_id integer
-)
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, pg_temp
-AS $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM vws_users WHERE user_id = p_id) THEN
-        RAISE EXCEPTION 'User % does not exist', p_id
-        USING ERRCODE = '22003';
-    END IF;
-
-    DELETE FROM users WHERE user_id = p_id;
-
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Users', 'DELETE', p_id::text, SESSION_USER, 'Deleted user');
+    CALL proc_create_audit_log('Roles', 'DELETE', p_role_id::TEXT, 'Deleted role ' || p_role_id);
 END;
 $$;
 
--- Source: PROCEDURES/proc_delete_student.sql
+
+-- Source: PROCEDURES\proc_delete_student.sql
 CREATE OR REPLACE PROCEDURE proc_delete_student(
     IN p_id integer
 )
@@ -1323,8 +1455,7 @@ BEGIN
 
     DELETE FROM students WHERE student_id = p_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Students', 'DELETE', p_id::text, SESSION_USER, 'Deleted student');
+    CALL proc_create_audit_log('Students', 'DELETE', p_id::text, 'Deleted student');
 
     IF v_user_id IS NOT NULL THEN
         PERFORM proc_delete_user(v_user_id);
@@ -1333,7 +1464,47 @@ END;
 $$;
 
 
--- Source: PROCEDURES/proc_delete_teacher.sql
+-- Source: PROCEDURES\proc_delete_studentdata.sql
+CREATE OR REPLACE PROCEDURE proc_delete_studentdata(
+    IN p_id integer
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM vws_student_data WHERE data_id = p_id) THEN
+        RAISE EXCEPTION 'StudentData % does not exist', p_id
+        USING ERRCODE = '22003';
+    END IF;
+
+    DELETE FROM studentdata WHERE data_id = p_id;
+
+    CALL proc_create_audit_log('StudentData', 'DELETE', p_id::text, 'Deleted student data');
+END;
+$$;
+
+-- Source: PROCEDURES\proc_delete_subject.sql
+CREATE OR REPLACE PROCEDURE proc_delete_subject(
+    IN p_subject_id INT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM Subjects WHERE subject_id = p_subject_id) THEN
+        RAISE EXCEPTION 'Subject with ID % does not exist', p_subject_id;
+    END IF;
+
+    DELETE FROM Subjects WHERE subject_id = p_subject_id;
+
+    CALL proc_create_audit_log('Subjects', 'DELETE', p_subject_id::TEXT, 'Deleted subject ' || p_subject_id);
+END;
+$$;
+
+
+-- Source: PROCEDURES\proc_delete_teacher.sql
 CREATE OR REPLACE PROCEDURE proc_delete_teacher(
     IN p_id integer
 )
@@ -1355,8 +1526,7 @@ BEGIN
 
     DELETE FROM teacher WHERE teacher_id = p_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Teacher', 'DELETE', p_id::text, SESSION_USER, 'Deleted teacher');
+    CALL proc_create_audit_log('Teacher', 'DELETE', p_id::text, 'Deleted teacher');
 
     IF v_user_id IS NOT NULL THEN
         PERFORM proc_delete_user(v_user_id);
@@ -1365,7 +1535,47 @@ END;
 $$;
 
 
--- Source: PROCEDURES/proc_register_user.sql
+-- Source: PROCEDURES\proc_delete_timetable.sql
+CREATE OR REPLACE PROCEDURE proc_delete_timetable(
+    IN p_timetable_id INT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM Timetable WHERE timetable_id = p_timetable_id) THEN
+        RAISE EXCEPTION 'Timetable with ID % does not exist', p_timetable_id;
+    END IF;
+
+    DELETE FROM Timetable WHERE timetable_id = p_timetable_id;
+
+    CALL proc_create_audit_log('Timetable', 'DELETE', p_timetable_id::TEXT, 'Deleted timetable ' || p_timetable_id);
+END;
+$$;
+
+
+-- Source: PROCEDURES\proc_delete_user.sql
+CREATE OR REPLACE PROCEDURE proc_delete_user(
+    IN p_id integer
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM vws_users WHERE user_id = p_id) THEN
+        RAISE EXCEPTION 'User % does not exist', p_id
+        USING ERRCODE = '22003';
+    END IF;
+
+    DELETE FROM users WHERE user_id = p_id;
+
+    CALL proc_create_audit_log('Users', 'DELETE', p_id::text, 'Deleted user');
+END;
+$$;
+
+-- Source: PROCEDURES\proc_register_user.sql
 CREATE OR REPLACE PROCEDURE proc_register_user(
     IN  p_username VARCHAR(50),
     IN  p_email    VARCHAR(60),
@@ -1421,7 +1631,7 @@ END;
 $$;
 
 
--- Source: PROCEDURES/proc_remove_role_from_user.sql
+-- Source: PROCEDURES\proc_remove_role_from_user.sql
 CREATE OR REPLACE PROCEDURE proc_remove_role_from_user(
     IN p_user_id integer,
     IN p_role_id integer
@@ -1447,13 +1657,12 @@ BEGIN
     DELETE FROM userrole
     WHERE user_id = p_user_id AND role_id = p_role_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('UserRole', 'DELETE', p_user_id || ',' || p_role_id, SESSION_USER, 'Removed role from user');
+    CALL proc_create_audit_log('UserRole', 'DELETE', p_user_id || ',' || p_role_id, 'Removed role from user');
 END;
 $$;
 
 
--- Source: PROCEDURES/proc_reset_user_password.sql
+-- Source: PROCEDURES\proc_reset_user_password.sql
 CREATE OR REPLACE PROCEDURE proc_reset_user_password(
     IN p_user_id integer,
     IN p_new_password varchar(50)
@@ -1481,13 +1690,12 @@ BEGIN
     SET password = p_new_password
     WHERE user_id = p_user_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Users', 'UPDATE', p_user_id::text, SESSION_USER, 'Reset user password');
+    CALL proc_create_audit_log('Users', 'UPDATE', p_user_id::text, 'Reset user password');
 END;
 $$;
 
 
--- Source: PROCEDURES/proc_unassign_student_parent.sql
+-- Source: PROCEDURES\proc_unassign_student_parent.sql
 CREATE OR REPLACE PROCEDURE proc_unassign_student_parent(
     IN p_student_id integer,
     IN p_parent_id integer
@@ -1508,13 +1716,37 @@ BEGIN
     DELETE FROM studentparent
     WHERE student_id_ref = p_student_id AND parent_id_ref = p_parent_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('StudentParent', 'DELETE', p_student_id || ',' || p_parent_id, SESSION_USER, 'Unassigned student from parent');
+    CALL proc_create_audit_log('StudentParent', 'DELETE', p_student_id || ',' || p_parent_id, 'Unassigned student from parent');
 END;
 $$;
 
 
--- Source: PROCEDURES/proc_update_day.sql
+-- Source: PROCEDURES\proc_update_class.sql
+CREATE OR REPLACE PROCEDURE proc_update_class(
+    IN p_class_name VARCHAR(10),
+    IN p_class_journal_id INT,
+    IN p_class_mainTeacher INT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM Class WHERE class_name = p_class_name) THEN
+        RAISE EXCEPTION 'Class % does not exist', p_class_name;
+    END IF;
+
+    UPDATE Class
+    SET class_journal_id = COALESCE(p_class_journal_id, class_journal_id),
+        class_mainTeacher = COALESCE(p_class_mainTeacher, class_mainTeacher)
+    WHERE class_name = p_class_name;
+
+    CALL proc_create_audit_log('Class', 'UPDATE', p_class_name::TEXT, 'Updated class ' || p_class_name);
+END;
+$$;
+
+
+-- Source: PROCEDURES\proc_update_day.sql
 CREATE OR REPLACE PROCEDURE proc_update_day
 (
     IN p_id integer,
@@ -1564,12 +1796,11 @@ BEGIN
         day_weekday = COALESCE(p_weekday, day_weekday)
     WHERE day_id = p_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Days', 'UPDATE', p_id::text, SESSION_USER, 'Updated day');
+    CALL proc_create_audit_log('Days', 'UPDATE', p_id::text, 'Updated day');
 END;
 $$;
 
--- Source: PROCEDURES/proc_update_homework.sql
+-- Source: PROCEDURES\proc_update_homework.sql
 CREATE OR REPLACE PROCEDURE proc_update_homework(
     IN p_id integer,
     IN p_name varchar(100) DEFAULT NULL,
@@ -1643,13 +1874,37 @@ BEGIN
         homework_class   = COALESCE(p_class, homework_class)
     WHERE homework_id = p_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Homework', 'UPDATE', p_id::text, SESSION_USER, 'Updated homework');
+    CALL proc_create_audit_log('Homework', 'UPDATE', p_id::text, 'Updated homework');
 END;
 $$;
 
 
--- Source: PROCEDURES/proc_update_lesson.sql
+-- Source: PROCEDURES\proc_update_journal.sql
+CREATE OR REPLACE PROCEDURE proc_update_journal(
+    IN p_journal_id INT,
+    IN p_journal_teacher INT,
+    IN p_journal_name VARCHAR(50)
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM Journal WHERE journal_id = p_journal_id) THEN
+        RAISE EXCEPTION 'Journal with ID % does not exist', p_journal_id;
+    END IF;
+
+    UPDATE Journal
+    SET journal_teacher = COALESCE(p_journal_teacher, journal_teacher),
+        journal_name = COALESCE(p_journal_name, journal_name)
+    WHERE journal_id = p_journal_id;
+
+    CALL proc_create_audit_log('Journal', 'UPDATE', p_journal_id::TEXT, 'Updated journal ' || p_journal_id);
+END;
+$$;
+
+
+-- Source: PROCEDURES\proc_update_lesson.sql
 CREATE OR REPLACE PROCEDURE public.proc_update_lesson(
 	IN p_lesson_id integer,
 	IN p_name character varying DEFAULT NULL::character varying,
@@ -1714,12 +1969,11 @@ BEGIN
         lesson_date     = COALESCE(p_date, lesson_date)
     WHERE lesson_id = p_lesson_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Lessons', 'UPDATE', p_lesson_id::text, SESSION_USER, 'Updated lesson');
+    CALL proc_create_audit_log('Lessons', 'UPDATE', p_lesson_id::text, 'Updated lesson');
 END;
 $$;
 
--- Source: PROCEDURES/proc_update_material.sql
+-- Source: PROCEDURES\proc_update_material.sql
 CREATE OR REPLACE PROCEDURE proc_update_material(
 	IN p_id integer,
 	IN p_name varchar(100),
@@ -1754,14 +2008,13 @@ BEGIN
 		material_link	= COALESCE(p_link, material_link)
 	WHERE material_id = p_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Material', 'UPDATE', p_id::text, SESSION_USER, 'Updated material');
+    CALL proc_create_audit_log('Material', 'UPDATE', p_id::text, 'Updated material');
 END;
 $$;
 
 	
 
--- Source: PROCEDURES/proc_update_parent.sql
+-- Source: PROCEDURES\proc_update_parent.sql
 CREATE OR REPLACE PROCEDURE proc_update_parent(
     IN p_id integer,
     IN p_name varchar(50),
@@ -1803,12 +2056,36 @@ BEGIN
         parent_user_id   = COALESCE(p_user_id, parent_user_id)
     WHERE parent_id = p_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Parents', 'UPDATE', p_id::text, SESSION_USER, 'Updated parent');
+    CALL proc_create_audit_log('Parents', 'UPDATE', p_id::text, 'Updated parent');
 END;
 $$;
 
--- Source: PROCEDURES/proc_update_student.sql
+-- Source: PROCEDURES\proc_update_role.sql
+CREATE OR REPLACE PROCEDURE proc_update_role(
+    IN p_role_id INT,
+    IN p_role_name VARCHAR(10),
+    IN p_role_desc TEXT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM Roles WHERE role_id = p_role_id) THEN
+        RAISE EXCEPTION 'Role with ID % does not exist', p_role_id;
+    END IF;
+
+    UPDATE Roles
+    SET role_name = COALESCE(p_role_name, role_name),
+        role_desc = COALESCE(p_role_desc, role_desc)
+    WHERE role_id = p_role_id;
+
+    CALL proc_create_audit_log('Roles', 'UPDATE', p_role_id::TEXT, 'Updated role ' || p_role_id);
+END;
+$$;
+
+
+-- Source: PROCEDURES\proc_update_student.sql
 CREATE OR REPLACE PROCEDURE proc_update_student(
     IN p_id integer,
     IN p_name varchar(50),
@@ -1859,12 +2136,11 @@ BEGIN
         student_class      = COALESCE(p_class, student_class)
     WHERE student_id = p_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Students', 'UPDATE', p_id::text, SESSION_USER, 'Updated student');
+    CALL proc_create_audit_log('Students', 'UPDATE', p_id::text, 'Updated student');
 END;
 $$;
 
--- Source: PROCEDURES/proc_update_studentdata.sql
+-- Source: PROCEDURES\proc_update_studentdata.sql
 CREATE OR REPLACE PROCEDURE proc_update_studentdata(
     IN p_id integer,
     IN p_journal_id integer DEFAULT NULL,
@@ -1924,13 +2200,39 @@ BEGIN
         note       = COALESCE(p_note, note)
     WHERE data_id = p_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('StudentData', 'UPDATE', p_id::text, SESSION_USER, 'Updated student data');
+    CALL proc_create_audit_log('StudentData', 'UPDATE', p_id::text, 'Updated student data');
 END;
 $$;
 
 
--- Source: PROCEDURES/proc_update_teacher.sql
+-- Source: PROCEDURES\proc_update_subject.sql
+CREATE OR REPLACE PROCEDURE proc_update_subject(
+    IN p_subject_id INT,
+    IN p_subject_name TEXT,
+    IN p_cabinet INT,
+    IN p_subject_program TEXT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM Subjects WHERE subject_id = p_subject_id) THEN
+        RAISE EXCEPTION 'Subject with ID % does not exist', p_subject_id;
+    END IF;
+
+    UPDATE Subjects
+    SET subject_name = COALESCE(p_subject_name, subject_name),
+        cabinet = COALESCE(p_cabinet, cabinet),
+        subject_program = COALESCE(p_subject_program, subject_program)
+    WHERE subject_id = p_subject_id;
+
+    CALL proc_create_audit_log('Subjects', 'UPDATE', p_subject_id::TEXT, 'Updated subject ' || p_subject_id);
+END;
+$$;
+
+
+-- Source: PROCEDURES\proc_update_teacher.sql
 CREATE OR REPLACE PROCEDURE proc_update_teacher(
     IN p_id integer,
     IN p_name varchar(50),
@@ -1972,13 +2274,37 @@ BEGIN
         teacher_user_id  = COALESCE(p_user_id, teacher_user_id)
     WHERE teacher_id = p_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Teacher', 'UPDATE', p_id::text, SESSION_USER, 'Updated teacher');
+    CALL proc_create_audit_log('Teacher', 'UPDATE', p_id::text, 'Updated teacher');
 END;
 $$;
 
 
--- Source: PROCEDURES/proc_update_user.sql
+-- Source: PROCEDURES\proc_update_timetable.sql
+CREATE OR REPLACE PROCEDURE proc_update_timetable(
+    IN p_timetable_id INT,
+    IN p_timetable_name VARCHAR(20),
+    IN p_timetable_class VARCHAR(10)
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM Timetable WHERE timetable_id = p_timetable_id) THEN
+        RAISE EXCEPTION 'Timetable with ID % does not exist', p_timetable_id;
+    END IF;
+
+    UPDATE Timetable
+    SET timetable_name = COALESCE(p_timetable_name, timetable_name),
+        timetable_class = COALESCE(p_timetable_class, timetable_class)
+    WHERE timetable_id = p_timetable_id;
+
+    CALL proc_create_audit_log('Timetable', 'UPDATE', p_timetable_id::TEXT, 'Updated timetable ' || p_timetable_id);
+END;
+$$;
+
+
+-- Source: PROCEDURES\proc_update_user.sql
 CREATE OR REPLACE PROCEDURE proc_update_user(
     IN p_id integer,
     IN p_username varchar(50) DEFAULT NULL,
@@ -2015,19 +2341,17 @@ BEGIN
         USING ERRCODE = '23505';
     END IF;
 
-    IF p_password IS NOT NULL THEN
-	    p_password := crypt(p_password, gen_salt('bf'));
-	END IF;
-
     UPDATE users
     SET
         username = COALESCE(p_username, username),
-        email    = COALESCE(p_email, email),
-        password = COALESCE(p_password, password)
+        email    = COALESCE(p_email, email)
     WHERE user_id = p_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Users', 'UPDATE', p_id::text, SESSION_USER, 'Updated user');
+    IF p_password IS NOT NULL THEN
+	    CALL proc_reset_user_password(p_id::integer, p_password::varchar);
+	END IF;
+
+    CALL proc_create_audit_log('Users', 'UPDATE', p_id::text, 'Updated user');
 END;
 $$;
 

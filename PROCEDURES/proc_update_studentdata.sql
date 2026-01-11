@@ -57,7 +57,6 @@ BEGIN
         note       = COALESCE(p_note, note)
     WHERE data_id = p_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('StudentData', 'UPDATE', p_id::text, SESSION_USER, 'Updated student data');
+    CALL proc_create_audit_log('StudentData', 'UPDATE', p_id::text, 'Updated student data');
 END;
 $$;

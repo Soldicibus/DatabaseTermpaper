@@ -17,7 +17,6 @@ BEGIN
         timetable_class = COALESCE(p_timetable_class, timetable_class)
     WHERE timetable_id = p_timetable_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Timetable', 'UPDATE', p_timetable_id::TEXT, SESSION_USER, 'Updated timetable ' || p_timetable_id);
+    CALL proc_create_audit_log('Timetable', 'UPDATE', p_timetable_id::TEXT, 'Updated timetable ' || p_timetable_id);
 END;
 $$;

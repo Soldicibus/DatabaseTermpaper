@@ -12,7 +12,6 @@ BEGIN
 
     DELETE FROM Roles WHERE role_id = p_role_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Roles', 'DELETE', p_role_id::TEXT, SESSION_USER, 'Deleted role ' || p_role_id);
+    CALL proc_create_audit_log('Roles', 'DELETE', p_role_id::TEXT, 'Deleted role ' || p_role_id);
 END;
 $$;

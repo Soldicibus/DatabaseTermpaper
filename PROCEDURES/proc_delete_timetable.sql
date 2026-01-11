@@ -12,7 +12,6 @@ BEGIN
 
     DELETE FROM Timetable WHERE timetable_id = p_timetable_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Timetable', 'DELETE', p_timetable_id::TEXT, SESSION_USER, 'Deleted timetable ' || p_timetable_id);
+    CALL proc_create_audit_log('Timetable', 'DELETE', p_timetable_id::TEXT, 'Deleted timetable ' || p_timetable_id);
 END;
 $$;

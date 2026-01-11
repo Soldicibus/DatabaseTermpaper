@@ -12,7 +12,6 @@ BEGIN
 
     DELETE FROM Subjects WHERE subject_id = p_subject_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Subjects', 'DELETE', p_subject_id::TEXT, SESSION_USER, 'Deleted subject ' || p_subject_id);
+    CALL proc_create_audit_log('Subjects', 'DELETE', p_subject_id::TEXT, 'Deleted subject ' || p_subject_id);
 END;
 $$;

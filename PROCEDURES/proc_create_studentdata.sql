@@ -58,7 +58,6 @@ BEGIN
     )
     RETURNING data_id INTO new_data_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('StudentData', 'INSERT', new_data_id::text, SESSION_USER, 'Created student data');
+    CALL proc_create_audit_log('StudentData', 'INSERT', new_data_id::text, 'Created student data');
 END;
 $$;

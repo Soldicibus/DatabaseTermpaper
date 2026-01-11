@@ -17,7 +17,6 @@ BEGIN
         class_mainTeacher = COALESCE(p_class_mainTeacher, class_mainTeacher)
     WHERE class_name = p_class_name;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Class', 'UPDATE', p_class_name, SESSION_USER, 'Updated class ' || p_class_name);
+    CALL proc_create_audit_log('Class', 'UPDATE', p_class_name::TEXT, 'Updated class ' || p_class_name);
 END;
 $$;

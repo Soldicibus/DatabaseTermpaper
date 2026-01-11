@@ -71,7 +71,6 @@ BEGIN
         homework_class   = COALESCE(p_class, homework_class)
     WHERE homework_id = p_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Homework', 'UPDATE', p_id::text, SESSION_USER, 'Updated homework');
+    CALL proc_create_audit_log('Homework', 'UPDATE', p_id::text, 'Updated homework');
 END;
 $$;

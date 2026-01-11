@@ -113,9 +113,8 @@ BEGIN
         v_user_id,
 		p_class
     )
-    RETURNING student_id INTO new_student_id;changed_by, details)
-    VALUES ('Students', 'INSERT', new_student_id::text, SESSION_USER
-    INSERT INTO AuditLog (table_name, operation, record_id, details)
-    VALUES ('Students', 'INSERT', new_student_id::text, 'Created student');
+    RETURNING student_id INTO new_student_id;
+
+    CALL proc_create_audit_log('Students', 'INSERT', new_student_id::text, 'Created student');
 END;
 $$;

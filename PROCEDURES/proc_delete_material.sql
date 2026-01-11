@@ -13,7 +13,6 @@ BEGIN
 
     DELETE FROM material WHERE material_id = p_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Material', 'DELETE', p_id::text, SESSION_USER, 'Deleted material');
+    CALL proc_create_audit_log('Material', 'DELETE', p_id::text, 'Deleted material');
 END;
 $$;

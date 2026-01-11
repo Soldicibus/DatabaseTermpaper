@@ -18,7 +18,6 @@ BEGIN
     DELETE FROM studentparent
     WHERE student_id_ref = p_student_id AND parent_id_ref = p_parent_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('StudentParent', 'DELETE', p_student_id || ',' || p_parent_id, SESSION_USER, 'Unassigned student from parent');
+    CALL proc_create_audit_log('StudentParent', 'DELETE', p_student_id || ',' || p_parent_id, 'Unassigned student from parent');
 END;
 $$;

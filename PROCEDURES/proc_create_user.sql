@@ -46,7 +46,6 @@ BEGIN
     VALUES (p_username, p_email, p_password)
     RETURNING user_id INTO new_user_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Users', 'INSERT', new_user_id::text, SESSION_USER, 'Created user');
+    CALL proc_create_audit_log('Users', 'INSERT', new_user_id::text, 'Created user');
 END;
 $$;

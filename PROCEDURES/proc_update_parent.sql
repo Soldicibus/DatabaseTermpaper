@@ -39,7 +39,6 @@ BEGIN
         parent_user_id   = COALESCE(p_user_id, parent_user_id)
     WHERE parent_id = p_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Parents', 'UPDATE', p_id::text, SESSION_USER, 'Updated parent');
+    CALL proc_create_audit_log('Parents', 'UPDATE', p_id::text, 'Updated parent');
 END;
 $$;

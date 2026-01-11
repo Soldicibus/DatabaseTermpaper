@@ -17,7 +17,7 @@ BEGIN
         u.user_id,
         u.username,
         u.email
-    FROM users u
+    FROM vws_user_auth_info u
     WHERE
         (u.username = p_login OR u.email = p_login)
         AND u.password = crypt(p_password, u.password);

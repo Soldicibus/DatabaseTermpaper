@@ -1,5 +1,5 @@
 -- Base views for all tables to be used in procedures
-CREATE OR REPLACE VIEW vws_users AS SELECT * FROM Users;
+CREATE OR REPLACE VIEW vws_users AS SELECT user_id, username, email FROM Users; -- Exclude password hash for security
 CREATE OR REPLACE VIEW vws_roles AS SELECT * FROM Roles;
 CREATE OR REPLACE VIEW vws_user_roles AS SELECT * FROM UserRole;
 CREATE OR REPLACE VIEW vws_teachers AS SELECT * FROM Teacher;
@@ -15,3 +15,4 @@ CREATE OR REPLACE VIEW vws_students AS SELECT * FROM Students;
 CREATE OR REPLACE VIEW vws_parents AS SELECT * FROM Parents;
 CREATE OR REPLACE VIEW vws_student_parents AS SELECT * FROM StudentParent;
 CREATE OR REPLACE VIEW vws_student_data AS SELECT * FROM StudentData;
+CREATE OR REPLACE VIEW vws_audits AS SELECT * FROM AuditLog;

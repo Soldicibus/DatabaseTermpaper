@@ -32,8 +32,7 @@ BEGIN
 		material_link	= COALESCE(p_link, material_link)
 	WHERE material_id = p_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Material', 'UPDATE', p_id::text, SESSION_USER, 'Updated material');
+    CALL proc_create_audit_log('Material', 'UPDATE', p_id::text, 'Updated material');
 END;
 $$;
 

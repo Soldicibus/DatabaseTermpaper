@@ -19,7 +19,6 @@ BEGIN
         subject_program = COALESCE(p_subject_program, subject_program)
     WHERE subject_id = p_subject_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Subjects', 'UPDATE', p_subject_id::TEXT, SESSION_USER, 'Updated subject ' || p_subject_id);
+    CALL proc_create_audit_log('Subjects', 'UPDATE', p_subject_id::TEXT, 'Updated subject ' || p_subject_id);
 END;
 $$;

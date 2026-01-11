@@ -25,7 +25,6 @@ BEGIN
     SET password = p_new_password
     WHERE user_id = p_user_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Users', 'UPDATE', p_user_id::text, SESSION_USER, 'Reset user password');
+    CALL proc_create_audit_log('Users', 'UPDATE', p_user_id::text, 'Reset user password');
 END;
 $$;

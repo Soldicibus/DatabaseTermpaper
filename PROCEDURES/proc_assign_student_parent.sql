@@ -28,7 +28,6 @@ BEGIN
     INSERT INTO studentparent(student_id_ref, parent_id_ref)
     VALUES (p_student_id, p_parent_id);
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('StudentParent', 'INSERT', p_student_id || ',' || p_parent_id, SESSION_USER, 'Assigned student to parent');
+    CALL proc_create_audit_log('StudentParent', 'INSERT', p_student_id || ',' || p_parent_id, 'Assigned student to parent');
 END;
 $$;

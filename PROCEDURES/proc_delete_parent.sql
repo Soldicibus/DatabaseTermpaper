@@ -19,8 +19,7 @@ BEGIN
 
     DELETE FROM parents WHERE parent_id = p_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Parents', 'DELETE', p_id::text, SESSION_USER, 'Deleted parent');
+    CALL proc_create_audit_log('Parents', 'DELETE', p_id::text, 'Deleted parent');
 
     IF v_user_id IS NOT NULL THEN
         PERFORM proc_delete_user(v_user_id);

@@ -4,7 +4,7 @@ CREATE OR REPLACE PROCEDURE proc_create_lesson(
     IN p_subject integer,
     IN p_material integer,
     IN p_teacher integer,
-    IN p_date date,
+    IN p_date TIMESTAMP WITHOUT TIME ZONE,
     OUT new_lesson_id integer
 )
 LANGUAGE plpgsql
@@ -36,7 +36,6 @@ BEGIN
     VALUES (p_name, p_class, p_subject, p_material, p_teacher, COALESCE(p_date, CURRENT_DATE))
     RETURNING lesson_id INTO new_lesson_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Lessons', 'INSERT', new_lesson_id::text, SESSION_USER, 'Created lesson');
+    CALL proc_create_audit_log('Lessons', 'INSERT', new_lesson_id::text, 'Created lesson');
 END;
 $$;

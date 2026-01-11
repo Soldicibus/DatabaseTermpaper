@@ -10,7 +10,6 @@ BEGIN
     INSERT INTO Roles (role_name, role_desc)
     VALUES (p_role_name, p_role_desc);
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Roles', 'INSERT', p_role_name, SESSION_USER, 'Created role ' || p_role_name);
+    CALL proc_create_audit_log('Roles', 'INSERT', p_role_name, 'Created role ' || p_role_name);
 END;
 $$;

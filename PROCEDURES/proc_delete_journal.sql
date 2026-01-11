@@ -12,7 +12,6 @@ BEGIN
 
     DELETE FROM Journal WHERE journal_id = p_journal_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Journal', 'DELETE', p_journal_id::TEXT, SESSION_USER, 'Deleted journal ' || p_journal_id);
+    CALL proc_create_audit_log('Journal', 'DELETE', p_journal_id::TEXT, 'Deleted journal ' || p_journal_id);
 END;
 $$;

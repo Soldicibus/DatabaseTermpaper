@@ -11,7 +11,6 @@ BEGIN
     INSERT INTO Class (class_name, class_journal_id, class_mainTeacher)
     VALUES (p_class_name, p_class_journal_id, p_class_mainTeacher);
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Class', 'INSERT', p_class_name, SESSION_USER, 'Created class ' || p_class_name);
+    CALL proc_create_audit_log('Class', 'INSERT', p_class_name::TEXT, 'Created class ' || p_class_name);
 END;
 $$;

@@ -23,7 +23,6 @@ BEGIN
     DELETE FROM userrole
     WHERE user_id = p_user_id AND role_id = p_role_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('UserRole', 'DELETE', p_user_id || ',' || p_role_id, SESSION_USER, 'Removed role from user');
+    CALL proc_create_audit_log('UserRole', 'DELETE', p_user_id || ',' || p_role_id, 'Removed role from user');
 END;
 $$;

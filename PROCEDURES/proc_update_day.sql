@@ -47,7 +47,6 @@ BEGIN
         day_weekday = COALESCE(p_weekday, day_weekday)
     WHERE day_id = p_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Days', 'UPDATE', p_id::text, SESSION_USER, 'Updated day');
+    CALL proc_create_audit_log('Days', 'UPDATE', p_id::text, 'Updated day');
 END;
 $$;

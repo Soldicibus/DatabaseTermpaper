@@ -19,8 +19,7 @@ BEGIN
 
     DELETE FROM students WHERE student_id = p_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Students', 'DELETE', p_id::text, SESSION_USER, 'Deleted student');
+    CALL proc_create_audit_log('Students', 'DELETE', p_id::text, 'Deleted student');
 
     IF v_user_id IS NOT NULL THEN
         PERFORM proc_delete_user(v_user_id);

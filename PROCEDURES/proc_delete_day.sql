@@ -13,7 +13,6 @@ BEGIN
 
     DELETE FROM days WHERE day_id = p_id;
 
-    INSERT INTO AuditLog (table_name, operation, record_id, changed_by, details)
-    VALUES ('Days', 'DELETE', p_id::text, SESSION_USER, 'Deleted day');
+    CALL proc_create_audit_log('Days', 'DELETE', p_id::text, 'Deleted day');
 END;
 $$;
