@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict dYbmPHHVcu2EXImdhVDylCzQLJz8IySiPBa8ryNrUWGrc7NgiADiIcF2tBp0Ln7
+\restrict I6CIjYrKRpVuxhnlKWAodXhoAHUoHCWtBdVXSPOIVFH4aY8NGbNIrbfWr5W6tK7
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.6
@@ -124,18 +124,53 @@ CREATE FUNCTION public.get_data_by_user_id(p_user_id integer) RETURNS TABLE(role
     SET search_path TO 'public', 'pg_temp'
     AS $$
 BEGIN
-    RETURN QUERY
-    SELECT 
-        v.role,
-        v.entity_id,
-        v.name,
-        v.surname,
-        v.patronym,
-        v.email,
-        v.phone
-    FROM vws_all_user_details v
-    WHERE v.user_id = p_user_id;
-    IF NOT FOUND THEN
+    IF EXISTS (
+        SELECT 1 FROM students WHERE student_user_id = p_user_id
+    ) THEN
+        RETURN QUERY
+        SELECT
+            get_user_role(p_user_id)::TEXT,
+            s.student_id,
+            s.student_name,
+            s.student_surname,
+	        s.student_patronym,
+            u.email,
+            s.student_phone
+        FROM students s
+        JOIN users u ON u.user_id = s.student_user_id
+        WHERE s.student_user_id = p_user_id;
+    ELSIF EXISTS (
+        SELECT 1 FROM teacher WHERE teacher_user_id = p_user_id
+    ) THEN
+        RETURN QUERY
+        SELECT
+            get_user_role(p_user_id)::TEXT,
+            t.teacher_id,
+            t.teacher_name,
+            t.teacher_surname,
+			t.teacher_patronym,
+            u.email,
+            t.teacher_phone
+        FROM teacher t
+        JOIN users u ON u.user_id = t.teacher_user_id
+        WHERE t.teacher_user_id = p_user_id;
+    ELSIF EXISTS (
+        SELECT 1 FROM parents WHERE parent_user_id = p_user_id
+    ) THEN
+        RETURN QUERY
+        SELECT
+            get_user_role(p_user_id)::TEXT,
+            p.parent_id,
+            p.parent_name,
+            p.parent_surname,
+			p.parent_patronym,
+            u.email,
+            p.parent_phone
+        FROM parents p
+        JOIN users u ON u.user_id = p.parent_user_id
+        WHERE p.parent_user_id = p_user_id;
+
+    ELSE
         RAISE EXCEPTION 'No entity linked to user_id %', p_user_id
         USING ERRCODE = 'P0001';
     END IF;
@@ -223,7 +258,7 @@ ALTER FUNCTION public.get_homework_by_duedate(p_class character varying, p_date 
 -- Name: get_student_grade_entries(integer, timestamp without time zone, timestamp without time zone); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE FUNCTION public.get_student_grade_entries(p_student_id integer, p_start_date timestamp without time zone DEFAULT (CURRENT_DATE - '30 days'::interval), p_end_date timestamp without time zone DEFAULT (CURRENT_DATE + '7 days'::interval)) RETURNS TABLE(lesson_id integer, lesson_date timestamp without time zone, subject_name text, journal_id integer, data_id integer, mark smallint, status text, note text)
+CREATE FUNCTION public.get_student_grade_entries(p_student_id integer, p_start_date timestamp without time zone DEFAULT (CURRENT_DATE - '2 days'::interval), p_end_date timestamp without time zone DEFAULT (CURRENT_DATE + '7 days'::interval)) RETURNS TABLE(lesson_id integer, lesson_date timestamp without time zone, subject_name text, journal_id integer, data_id integer, mark smallint, note text, status text)
     LANGUAGE sql SECURITY DEFINER
     SET search_path TO 'public', 'pg_temp'
     AS $$
@@ -234,8 +269,8 @@ CREATE FUNCTION public.get_student_grade_entries(p_student_id integer, p_start_d
 		sd.journal_id,
 		sd.data_id,
         sd.mark,
-        sd.status,
-		sd.note
+		sd.note,
+        sd.status
     FROM StudentData sd
     JOIN Lessons l ON sd.lesson = l.lesson_id
     JOIN Subjects s ON l.lesson_subject = s.subject_id
@@ -267,39 +302,6 @@ $$;
 
 
 ALTER FUNCTION public.get_student_marks(p_student_id integer, p_from date, p_to date) OWNER TO postgres;
-
---
--- Name: get_student_monthly_grades(integer, timestamp without time zone); Type: FUNCTION; Schema: public; Owner: postgres
---
-
-CREATE FUNCTION public.get_student_monthly_grades(p_student_id integer, p_month timestamp without time zone DEFAULT CURRENT_DATE) RETURNS TABLE(data_id integer, subject_name text, mark smallint, status public.journal_status_enum, note text, lesson_date timestamp without time zone, lesson_id integer, teacher_id integer)
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
-    AS $$
-BEGIN
-    RETURN QUERY
-    SELECT 
-        sd.data_id,
-        sub.subject_name,
-        sd.mark,
-        sd.status,
-        sd.note,
-        l.lesson_date,
-        l.lesson_id,
-        l.lesson_teacher
-    FROM StudentData sd
-    JOIN Lessons l ON sd.lesson = l.lesson_id
-    JOIN Subjects sub ON l.lesson_subject = sub.subject_id
-    WHERE sd.student_id = p_student_id
-      AND sd.mark IS NOT NULL
-      AND EXTRACT(MONTH FROM l.lesson_date) = EXTRACT(MONTH FROM COALESCE(p_month, CURRENT_DATE))
-      AND EXTRACT(YEAR FROM l.lesson_date) = EXTRACT(YEAR FROM COALESCE(p_month, CURRENT_DATE))
-    ORDER BY l.lesson_date, sub.subject_name;
-END;
-$$;
-
-
-ALTER FUNCTION public.get_student_monthly_grades(p_student_id integer, p_month timestamp without time zone) OWNER TO postgres;
 
 --
 -- Name: get_teacher_salary(integer, date, date); Type: FUNCTION; Schema: public; Owner: postgres
@@ -3296,47 +3298,6 @@ CREATE VIEW public.vw_view_timetable_week AS
 ALTER VIEW public.vw_view_timetable_week OWNER TO postgres;
 
 --
--- Name: vws_all_user_details; Type: VIEW; Schema: public; Owner: postgres
---
-
-CREATE VIEW public.vws_all_user_details WITH (security_barrier='true') AS
- SELECT 'student'::text AS role,
-    s.student_user_id AS user_id,
-    s.student_id AS entity_id,
-    s.student_name AS name,
-    s.student_surname AS surname,
-    s.student_patronym AS patronym,
-    u.email,
-    s.student_phone AS phone
-   FROM (public.students s
-     JOIN public.users u ON ((u.user_id = s.student_user_id)))
-UNION ALL
- SELECT 'teacher'::text AS role,
-    t.teacher_user_id AS user_id,
-    t.teacher_id AS entity_id,
-    t.teacher_name AS name,
-    t.teacher_surname AS surname,
-    t.teacher_patronym AS patronym,
-    u.email,
-    t.teacher_phone AS phone
-   FROM (public.teacher t
-     JOIN public.users u ON ((u.user_id = t.teacher_user_id)))
-UNION ALL
- SELECT 'parent'::text AS role,
-    p.parent_user_id AS user_id,
-    p.parent_id AS entity_id,
-    p.parent_name AS name,
-    p.parent_surname AS surname,
-    p.parent_patronym AS patronym,
-    u.email,
-    p.parent_phone AS phone
-   FROM (public.parents p
-     JOIN public.users u ON ((u.user_id = p.parent_user_id)));
-
-
-ALTER VIEW public.vws_all_user_details OWNER TO postgres;
-
---
 -- Name: vws_audits; Type: VIEW; Schema: public; Owner: postgres
 --
 
@@ -3686,7 +3647,7 @@ ALTER VIEW public.vws_user_roles OWNER TO postgres;
 -- Name: vws_users; Type: VIEW; Schema: public; Owner: postgres
 --
 
-CREATE VIEW public.vws_users WITH (security_barrier='true') AS
+CREATE VIEW public.vws_users AS
  SELECT user_id,
     username,
     email
@@ -3765,7 +3726,6 @@ COPY public.auditlog (log_id, table_name, operation, record_id, changed_by, chan
 65	StudentData	UPDATE	1	postgres	2026-01-11 21:29:16.315077	Updated student data
 66	StudentData	UPDATE	1514	postgres	2026-01-11 21:30:07.496883	Updated student data
 67	StudentData	UPDATE	1500	postgres	2026-01-11 22:05:53.835693	Updated student data
-68	StudentData	UPDATE	1503	postgres	2026-01-12 00:15:18.464998	Updated student data
 \.
 
 
@@ -6987,6 +6947,7 @@ COPY public.studentdata (data_id, journal_id, student_id, lesson, mark, status, 
 1497	1	1	192	12	П	Гарна робота!	2025-12-23 11:45:42.259094
 1501	2	14	196	12	П	HEHEHEHE	2026-01-11 01:53:26.014971
 1502	1	1	196	12	П	АФОТШ	2026-01-11 01:56:47.789403
+1503	1	1	198	2	П	NO SHITTY	2026-01-11 01:57:26.174678
 1504	1	1	203	1	Н	NE NI SI	2026-01-11 01:59:57.531988
 1506	1	10	185	\N	Н	BAD SHIT!	2026-01-11 18:59:58.648905
 1507	1	3	185	1	Н	SHIT!!!!!	2026-01-11 19:05:23.556873
@@ -6995,7 +6956,6 @@ COPY public.studentdata (data_id, journal_id, student_id, lesson, mark, status, 
 1	1	1	1	\N	Присутній	TEST	2025-12-14 22:17:43.36063
 1514	15	148	210	1	Н	I SAID SHIT2	2026-01-11 21:25:24.356719
 1500	1	10	196	12	П	YEAHHH	2026-01-11 01:53:04.490861
-1503	1	1	198	2	Н	NO SHITTY	2026-01-11 01:57:26.174678
 \.
 
 
@@ -9481,7 +9441,7 @@ COPY public.users (user_id, username, email, password) FROM stdin;
 -- Name: auditlog_log_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.auditlog_log_id_seq', 68, true);
+SELECT pg_catalog.setval('public.auditlog_log_id_seq', 67, true);
 
 
 --
@@ -11660,5 +11620,5 @@ GRANT SELECT ON TABLE public.vws_users TO guest;
 -- PostgreSQL database dump complete
 --
 
-\unrestrict dYbmPHHVcu2EXImdhVDylCzQLJz8IySiPBa8ryNrUWGrc7NgiADiIcF2tBp0Ln7
+\unrestrict I6CIjYrKRpVuxhnlKWAodXhoAHUoHCWtBdVXSPOIVFH4aY8NGbNIrbfWr5W6tK7
 

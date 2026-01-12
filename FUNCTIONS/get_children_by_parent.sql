@@ -29,9 +29,9 @@ AS $$
             2
         ) AS attendance
 
-    FROM vws_student_parents sp
-    JOIN vws_students s ON sp.student_id_ref = s.student_id
-    LEFT JOIN vws_student_data j ON j.student_id = s.student_id
+    FROM StudentParents sp
+    JOIN Students s ON sp.student_id_ref = s.student_id
+    LEFT JOIN StudentData j ON j.student_id = s.student_id
 
     WHERE sp.parent_id_ref = p_parent_id
 
