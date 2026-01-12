@@ -41,10 +41,10 @@ BEGIN
 
     UPDATE days
     SET
-        day_timetable    = COALESCE(p_timetable, day_timetable),
+        day_timetable    = p_timetable,
 		day_subject		= COALESCE(p_subject, day_subject),
         day_time    = COALESCE(p_time, day_time),
-        day_weekday = COALESCE(p_weekday, day_weekday)
+        day_weekday = p_weekday
     WHERE day_id = p_id;
 
     CALL proc_create_audit_log('Days', 'UPDATE', p_id::text, 'Updated day');

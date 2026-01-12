@@ -32,14 +32,14 @@ GRANT USAGE ON SCHEMA public TO sadmin;
 GRANT EXECUTE ON FUNCTION login_user(TEXT, TEXT) TO guest;
 GRANT EXECUTE ON FUNCTION translit_uk_to_lat(TEXT) TO guest;
 GRANT EXECUTE ON FUNCTION get_user_role(INT) TO guest;
-GRANT EXECUTE ON FUNCTION get_data_by_user_id(INT) TO guest;
-GRANT SELECT ON FUNCTION vws_all_user_details TO guest;
 GRANT EXECUTE ON PROCEDURE proc_register_user(VARCHAR, VARCHAR, TEXT, INT) TO guest;
 
 -- =================================================================================================
 -- STUDENT
 -- =================================================================================================
 GRANT guest TO student;
+GRANT EXECUTE ON FUNCTION get_data_by_user_id(INT) TO student;
+GRANT SELECT on vws_all_user_details TO student;
 
 -- Functions
 GRANT EXECUTE ON FUNCTION get_student_marks(INT, DATE, DATE) TO student;
@@ -48,7 +48,7 @@ GRANT EXECUTE ON FUNCTION get_homework_by_date_class(VARCHAR, DATE) TO student;
 GRANT EXECUTE ON FUNCTION homework_by_date_subject(DATE, INT) TO student;
 GRANT EXECUTE ON FUNCTION student_attendance_report(INT, DATE, DATE) TO student;
 GRANT EXECUTE ON FUNCTION student_day_plan(INT, DATE) TO student;
-GRANT EXECUTE ON FUNCTION get_student_monthly_grades(INT, DATE DEFAULT CURRENT_DATE) TO student;
+GRANT EXECUTE ON FUNCTION get_student_monthly_grades(INT, DATE) TO student;
 
 -- Views
 GRANT SELECT ON vws_student_profile TO student;
@@ -64,6 +64,8 @@ GRANT SELECT ON vw_students_by_class TO student;
 -- PARENT
 -- =================================================================================================
 GRANT guest TO parent;
+GRANT EXECUTE ON FUNCTION get_data_by_user_id(INT) TO parent;
+GRANT SELECT on vws_all_user_details TO parent;
 
 -- Functions
 GRANT EXECUTE ON FUNCTION get_children_by_parent(INT) TO parent;
@@ -74,7 +76,7 @@ GRANT EXECUTE ON FUNCTION get_homework_by_date_class(VARCHAR, DATE) TO parent;
 GRANT EXECUTE ON FUNCTION homework_by_date_subject(DATE, INT) TO parent;
 GRANT EXECUTE ON FUNCTION student_attendance_report(INT, DATE, DATE) TO parent;
 GRANT EXECUTE ON FUNCTION student_day_plan(INT, DATE) TO parent;
-GRANT EXECUTE ON FUNCTION get_student_monthly_grades(INT, DATE DEFAULT CURRENT_DATE) TO parent;
+GRANT EXECUTE ON FUNCTION get_student_monthly_grades(INT, DATE) TO parent;
 -- Views
 GRANT SELECT ON vws_student_profile TO parent;
 GRANT SELECT ON vws_class_schedule TO parent;
@@ -128,6 +130,8 @@ GRANT SELECT ON vws_students TO teacher;
 -- ADMIN
 -- =================================================================================================
 GRANT guest TO admin;
+GRANT EXECUTE ON FUNCTION get_data_by_user_id(INT) TO admin;
+GRANT SELECT on vws_all_user_details TO admin;
 
 -- NO DIRECT TABLE ACCESS. Access via Procedures and Views only.
 
@@ -210,6 +214,8 @@ GRANT SELECT ON vws_student_data TO admin;
 -- SADMIN
 -- =================================================================================================
 GRANT admin TO sadmin;
+GRANT EXECUTE ON FUNCTION get_data_by_user_id(INT) TO sadmin;
+GRANT SELECT on vws_all_user_details TO sadmin;
 
 GRANT EXECUTE ON PROCEDURE proc_assign_role_to_user(INT, INT) TO sadmin;
 GRANT EXECUTE ON PROCEDURE proc_remove_role_from_user(INT, INT) TO sadmin;

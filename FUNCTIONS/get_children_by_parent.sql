@@ -1,5 +1,3 @@
-DROP FUNCTION IF EXISTS get_children_by_parent(INT);
-
 CREATE OR REPLACE FUNCTION get_children_by_parent(
     p_parent_id INT
 )
@@ -29,7 +27,7 @@ AS $$
             2
         ) AS attendance
 
-    FROM StudentParents sp
+    FROM StudentParent sp
     JOIN Students s ON sp.student_id_ref = s.student_id
     LEFT JOIN StudentData j ON j.student_id = s.student_id
 

@@ -14,7 +14,7 @@ BEGIN
 
     UPDATE Roles
     SET role_name = COALESCE(p_role_name, role_name),
-        role_desc = COALESCE(p_role_desc, role_desc)
+        role_desc = NULLIF(TRIM(p_role_desc), '')
     WHERE role_id = p_role_id;
 
     CALL proc_create_audit_log('Roles', 'UPDATE', p_role_id::TEXT, 'Updated role ' || p_role_id);

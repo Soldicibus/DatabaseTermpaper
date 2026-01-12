@@ -29,7 +29,7 @@ BEGIN
         USING ERRCODE = '23502';
     END IF;
 
-    IF NOT p_day_weekday IN ('Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П''ятниця') THEN
+    IF NOT p_day_weekday IN ('Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П’ятниця') THEN
         RAISE EXCEPTION 'Invalid weekday: %', p_day_weekday
         USING ERRCODE = '23514';
     END IF;

@@ -16,7 +16,7 @@ BEGIN
     UPDATE Subjects
     SET subject_name = COALESCE(p_subject_name, subject_name),
         cabinet = COALESCE(p_cabinet, cabinet),
-        subject_program = COALESCE(p_subject_program, subject_program)
+        subject_program = NULLIF(TRIM(p_subject_program), '')
     WHERE subject_id = p_subject_id;
 
     CALL proc_create_audit_log('Subjects', 'UPDATE', p_subject_id::TEXT, 'Updated subject ' || p_subject_id);

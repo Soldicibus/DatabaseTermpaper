@@ -52,9 +52,9 @@ BEGIN
         journal_id = COALESCE(p_journal_id, journal_id),
         student_id = COALESCE(p_student_id, student_id),
         lesson     = COALESCE(p_lesson, lesson),
-        mark       = COALESCE(p_mark, mark),
+        mark       = p_mark,
         status     = COALESCE(p_status, status),
-        note       = COALESCE(p_note, note)
+        note       = p_note
     WHERE data_id = p_id;
 
     CALL proc_create_audit_log('StudentData', 'UPDATE', p_id::text, 'Updated student data');

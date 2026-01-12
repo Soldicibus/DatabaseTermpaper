@@ -13,8 +13,8 @@ BEGIN
     END IF;
 
     UPDATE Class
-    SET class_journal_id = COALESCE(p_class_journal_id, class_journal_id),
-        class_mainTeacher = COALESCE(p_class_mainTeacher, class_mainTeacher)
+    SET class_journal_id = p_class_journal_id,
+        class_mainTeacher = p_class_mainTeacher
     WHERE class_name = p_class_name;
 
     CALL proc_create_audit_log('Class', 'UPDATE', p_class_name::TEXT, 'Updated class ' || p_class_name);

@@ -30,7 +30,7 @@ DROP PROCEDURE IF EXISTS proc_create_role(IN p_role_name VARCHAR(10), IN p_role_
 DROP PROCEDURE IF EXISTS proc_create_student(IN p_name VARCHAR(50), IN p_surname VARCHAR(50), IN p_patronym VARCHAR(50), IN p_phone VARCHAR(20), IN p_user_id INTEGER, IN p_class varchar(10), OUT new_student_id INTEGER, OUT generated_password TEXT) CASCADE;
 DROP PROCEDURE IF EXISTS proc_create_studentdata(IN p_journal_id integer, IN p_student_id integer, IN p_lesson integer, IN p_mark smallint, IN p_status journal_status_enum, INOUT p_note text, OUT new_data_id integer) CASCADE;
 DROP PROCEDURE IF EXISTS proc_create_subject(IN p_subject_name TEXT, IN p_cabinet INT, IN p_subject_program TEXT) CASCADE;
-DROP PROCEDURE IF EXISTS proc_create_teacher(IN p_name varchar(50), IN p_surname varchar(50), IN p_patronym varchar(50), IN p_phone varchar(20), IN p_user_id integer, OUT new_teacher_id integer) CASCADE;
+DROP PROCEDURE IF EXISTS proc_create_teacher(IN p_name varchar(50), IN p_surname varchar(50), IN p_patronym varchar(50), IN p_phone varchar(20), IN p_user_id integer, OUT new_teacher_id integer, OUT generated_password TEXT) CASCADE;
 DROP PROCEDURE IF EXISTS proc_create_timetable(IN p_timetable_name VARCHAR(20), IN p_timetable_class VARCHAR(10)) CASCADE;
 DROP PROCEDURE IF EXISTS proc_create_user(IN p_username varchar(50), IN p_email varchar(60), IN p_password varchar(50), OUT new_user_id integer) CASCADE;
 DROP PROCEDURE IF EXISTS proc_delete_class(IN p_class_name VARCHAR(10)) CASCADE;
@@ -78,8 +78,8 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 	SELECT s.student_id, s.student_name, s.student_surname, COUNT(*)
-	FROM vws_students s
-	JOIN vws_student_data sd ON s.student_id = sd.student_id
+	FROM Students s
+	JOIN StudentData sd ON s.student_id = sd.student_id
 	WHERE s.student_class = p_class
 	AND sd.status IN ('Н','Не присутній')
 	GROUP BY s.student_id
@@ -88,8 +88,6 @@ $$;
 
 
 -- Source: FUNCTIONS\get_children_by_parent.sql
-DROP FUNCTION IF EXISTS get_children_by_parent(INT);
-
 CREATE OR REPLACE FUNCTION get_children_by_parent(
     p_parent_id INT
 )
@@ -119,9 +117,9 @@ AS $$
             2
         ) AS attendance
 
-    FROM vws_student_parents sp
-    JOIN vws_students s ON sp.student_id_ref = s.student_id
-    LEFT JOIN vws_student_data j ON j.student_id = s.student_id
+    FROM StudentParent sp
+    JOIN Students s ON sp.student_id_ref = s.student_id
+    LEFT JOIN StudentData j ON j.student_id = s.student_id
 
     WHERE sp.parent_id_ref = p_parent_id
 
@@ -147,53 +145,18 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 BEGIN
-    IF EXISTS (
-        SELECT 1 FROM vws_students WHERE student_user_id = p_user_id
-    ) THEN
-        RETURN QUERY
-        SELECT
-            get_user_role(p_user_id)::TEXT,
-            s.student_id,
-            s.student_name,
-            s.student_surname,
-	        s.student_patronym,
-            u.email,
-            s.student_phone
-        FROM vws_students s
-        JOIN vws_users u ON u.user_id = s.student_user_id
-        WHERE s.student_user_id = p_user_id;
-    ELSIF EXISTS (
-        SELECT 1 FROM vws_teachers WHERE teacher_user_id = p_user_id
-    ) THEN
-        RETURN QUERY
-        SELECT
-            get_user_role(p_user_id)::TEXT,
-            t.teacher_id,
-            t.teacher_name,
-            t.teacher_surname,
-			t.teacher_patronym,
-            u.email,
-            t.teacher_phone
-        FROM vws_teachers t
-        JOIN vws_users u ON u.user_id = t.teacher_user_id
-        WHERE t.teacher_user_id = p_user_id;
-    ELSIF EXISTS (
-        SELECT 1 FROM vws_parents WHERE parent_user_id = p_user_id
-    ) THEN
-        RETURN QUERY
-        SELECT
-            get_user_role(p_user_id)::TEXT,
-            p.parent_id,
-            p.parent_name,
-            p.parent_surname,
-			p.parent_patronym,
-            u.email,
-            p.parent_phone
-        FROM vws_parents p
-        JOIN vws_users u ON u.user_id = p.parent_user_id
-        WHERE p.parent_user_id = p_user_id;
-
-    ELSE
+    RETURN QUERY
+    SELECT 
+        v.role,
+        v.entity_id,
+        v.name,
+        v.surname,
+        v.patronym,
+        v.email,
+        v.phone
+    FROM vws_all_user_details v
+    WHERE v.user_id = p_user_id;
+    IF NOT FOUND THEN
         RAISE EXCEPTION 'No entity linked to user_id %', p_user_id
         USING ERRCODE = 'P0001';
     END IF;
@@ -211,7 +174,7 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 	SELECT homework_name, homework_desc
-	FROM vws_homeworks
+	FROM Homework
 	WHERE homework_class = p_class
 	AND homework_duedate = p_date;
 $$;
@@ -220,16 +183,18 @@ $$;
 -- Source: FUNCTIONS\get_student_grade_entries.sql
 CREATE OR REPLACE FUNCTION get_student_grade_entries(
     p_student_id INT,
-    p_start_date TIMESTAMP WITHOUT TIME ZONE DEFAULT (CURRENT_DATE - INTERVAL '2 days')::TIMESTAMP WITHOUT TIME ZONE,
-    p_end_date TIMESTAMP WITHOUT TIME ZONE DEFAULT (CURRENT_DATE + INTERVAL '7 days')::TIMESTAMP WITHOUT TIME ZONE
+    p_start_date TIMESTAMP WITHOUT TIME ZONE DEFAULT (CURRENT_DATE - INTERVAL '30 days')::TIMESTAMP WITHOUT TIME ZONE,
+    p_end_date TIMESTAMP WITHOUT TIME ZONE DEFAULT (CURRENT_DATE + INTERVAL '7 days')::TIMESTAMP WITHOUT TIME ZONE --just in case
 )
 RETURNS TABLE (
     lesson_id INT,
     lesson_date TIMESTAMP WITHOUT TIME ZONE,
     subject_name TEXT,
+	journal_id INT,
     data_id INT,
     mark SMALLINT,
-    status TEXT
+    status TEXT,
+	note TEXT
 )
 LANGUAGE sql
 SECURITY DEFINER
@@ -239,12 +204,14 @@ AS $$
 	l.lesson_id,
         l.lesson_date,
         s.subject_name,
-	sd.data_id,
+		sd.journal_id,
+		sd.data_id,
         sd.mark,
-        sd.status
-    FROM vws_student_data sd
-    JOIN vws_lessons l ON sd.lesson = l.lesson_id
-    JOIN vws_subjects s ON l.lesson_subject = s.subject_id
+        sd.status,
+		sd.note
+    FROM StudentData sd
+    JOIN Lessons l ON sd.lesson = l.lesson_id
+    JOIN Subjects s ON l.lesson_subject = s.subject_id
     WHERE sd.student_id = p_student_id
       AND l.lesson_date BETWEEN p_start_date AND p_end_date
 	  AND sd.mark IS NOT NULL
@@ -263,7 +230,7 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 	SELECT sd.mark, l.lesson_date
-	FROM vws_student_data sd
+	FROM StudentData sd
 	JOIN Journal j ON sd.journal_id = j.journal_id
 	JOIN Lessons l ON j.journal_teacher = l.lesson_teacher
 	WHERE sd.mark IS NOT NULL
@@ -301,9 +268,9 @@ BEGIN
         l.lesson_date,
         l.lesson_id,
         l.lesson_teacher
-    FROM vws_student_data sd
-    JOIN vws_lessons l ON sd.lesson = l.lesson_id
-    JOIN vws_subjects sub ON l.lesson_subject = sub.subject_id
+    FROM StudentData sd
+    JOIN Lessons l ON sd.lesson = l.lesson_id
+    JOIN Subjects sub ON l.lesson_subject = sub.subject_id
     WHERE sd.student_id = p_student_id
       AND sd.mark IS NOT NULL
       AND EXTRACT(MONTH FROM l.lesson_date) = EXTRACT(MONTH FROM COALESCE(p_month, CURRENT_DATE))
@@ -325,7 +292,7 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 SELECT COUNT(*) * 550
-	FROM vws_lessons
+	FROM Lessons
 	WHERE lesson_teacher = p_teacher_id
 	AND lesson_date BETWEEN p_from AND p_to;
 $$;
@@ -340,8 +307,8 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 	SELECT r.role_name
-	FROM vws_user_roles ur
-	JOIN vws_roles r ON ur.role_id = r.role_id
+	FROM UserRole ur
+	JOIN Roles r ON ur.role_id = r.role_id
 	WHERE ur.user_id = p_user_id;
 $$;
 
@@ -357,8 +324,8 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 	SELECT h.homework_desc
-	FROM vws_homeworks h
-	JOIN vws_lessons l ON h.homework_lesson = l.lesson_id
+	FROM Homework h
+	JOIN Lessons l ON h.homework_lesson = l.lesson_id
 	WHERE h.homework_duedate = p_date
 	AND (p_subject IS NULL OR l.lesson_subject = p_subject);
 $$;
@@ -418,8 +385,8 @@ DECLARE
 BEGIN
     SELECT COUNT(*)::INT
     INTO total
-    FROM vws_student_data sd
-    JOIN vws_lessons l ON l.lesson_id = sd.lesson
+    FROM StudentData sd
+    JOIN Lessons l ON l.lesson_id = sd.lesson
     WHERE sd.student_id = p_student_id
       AND l.lesson_date BETWEEN p_from AND p_to;
 
@@ -436,8 +403,8 @@ BEGIN
             (COUNT(*) FILTER (WHERE sd.status IN ('П','Присутній'))::NUMERIC / total) * 100,
             2
         )
-    FROM vws_student_data sd
-    JOIN vws_lessons l ON l.lesson_id = sd.lesson
+    FROM StudentData sd
+    JOIN Lessons l ON l.lesson_id = sd.lesson
     WHERE sd.student_id = p_student_id
       AND l.lesson_date BETWEEN p_from AND p_to;
 END;
@@ -455,10 +422,10 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 	SELECT l.lesson_name, sd.mark, h.homework_desc
-	FROM vws_students s
-	JOIN vws_lessons l ON l.lesson_class = s.student_class
-	LEFT JOIN vws_student_data sd ON sd.student_id = s.student_id
-	LEFT JOIN vws_homeworks h ON h.homework_class = s.student_class
+	FROM Students s
+	JOIN Lessons l ON l.lesson_class = s.student_class
+	LEFT JOIN StudentData sd ON sd.student_id = s.student_id
+	LEFT JOIN Homework h ON h.homework_class = s.student_class
 	WHERE s.student_id = p_student_id
 	AND l.lesson_date = p_date;
 $$;
@@ -1191,13 +1158,23 @@ CREATE OR REPLACE PROCEDURE proc_create_teacher(
     IN p_patronym varchar(50),
     IN p_phone varchar(20),
     IN p_user_id integer,
-    OUT new_teacher_id integer
+    OUT new_teacher_id integer,
+	OUT generated_password TEXT
+	
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
+DECLARE
+    v_user_id INT;
+    v_username TEXT;
+    v_email TEXT;
+    v_password TEXT;
+    v_patronym_part TEXT;
+    v_teacher_role_id INT;
 BEGIN
+	generated_password := NULL;
     p_name := NULLIF(trim(p_name), '');
     p_surname := NULLIF(trim(p_surname), '');
     p_patronym := NULLIF(trim(p_patronym), '');
@@ -1208,11 +1185,60 @@ BEGIN
         USING ERRCODE = '23514';
     END IF;
 
-    IF p_user_id IS NOT NULL AND NOT EXISTS (
-        SELECT 1 FROM vws_users WHERE user_id = p_user_id
-    ) THEN
-        RAISE EXCEPTION 'User % does not exist', p_user_id
-        USING ERRCODE = '22003';
+    IF p_user_id IS NOT NULL THEN
+        IF NOT EXISTS (SELECT 1 FROM vws_users WHERE user_id = p_user_id) THEN
+            RAISE EXCEPTION 'User % does not exist', p_user_id
+            USING ERRCODE = '22003';
+        END IF;
+
+        v_user_id := p_user_id;
+
+    ELSE
+	        /* ---------- Generate username / email / password ---------- */
+
+		v_patronym_part :=
+		    substr(
+		        translit_uk_to_lat(coalesce(p_patronym, 'xxx')),
+		        1,
+		        3
+		    );
+
+        v_username :=
+		    translit_uk_to_lat(p_name) ||
+		    translit_uk_to_lat(p_surname) ||
+		    v_patronym_part;
+		
+		v_email :=
+		    translit_uk_to_lat(p_name) ||
+		    translit_uk_to_lat(p_surname) ||
+		    v_patronym_part || '@school.edu.ua';
+
+        generated_password :=
+		    encode(gen_random_bytes(6), 'base64');
+		
+		v_password := generated_password;
+		
+        /* ---------- Register user ---------- */
+        CALL proc_register_user(
+            v_username,
+            v_email,
+            v_password,
+            v_user_id
+        );
+
+        /* ---------- Assign teacher role ---------- */
+        SELECT role_id
+        INTO v_teacher_role_id
+        FROM vws_roles
+        WHERE role_name = 'Student';
+
+        IF v_teacher_role_id IS NULL THEN
+            RAISE EXCEPTION 'Role teacher does not exist';
+        END IF;
+
+        CALL proc_assign_role_to_user(v_user_id, v_teacher_role_id);
+
+        RAISE NOTICE 'Generated password for %: %', v_username, v_password;
     END IF;
 
     INSERT INTO teacher (
@@ -1227,7 +1253,7 @@ BEGIN
         p_surname,
         p_patronym,
         p_phone,
-        p_user_id
+        v_user_id
     )
     RETURNING teacher_id INTO new_teacher_id;
 
@@ -1784,8 +1810,8 @@ BEGIN
     END IF;
 
     UPDATE Class
-    SET class_journal_id = COALESCE(p_class_journal_id, class_journal_id),
-        class_mainTeacher = COALESCE(p_class_mainTeacher, class_mainTeacher)
+    SET class_journal_id = p_class_journal_id,
+        class_mainTeacher = p_class_mainTeacher
     WHERE class_name = p_class_name;
 
     CALL proc_create_audit_log('Class', 'UPDATE', p_class_name::TEXT, 'Updated class ' || p_class_name);
@@ -1837,10 +1863,10 @@ BEGIN
 
     UPDATE days
     SET
-        day_timetable    = COALESCE(p_timetable, day_timetable),
+        day_timetable    = p_timetable,
 		day_subject		= COALESCE(p_subject, day_subject),
         day_time    = COALESCE(p_time, day_time),
-        day_weekday = COALESCE(p_weekday, day_weekday)
+        day_weekday = p_weekday
     WHERE day_id = p_id;
 
     CALL proc_create_audit_log('Days', 'UPDATE', p_id::text, 'Updated day');
@@ -1913,8 +1939,8 @@ BEGIN
 
     UPDATE homework
     SET
-        homework_name    = COALESCE(p_name, homework_name),
-        homework_teacher = COALESCE(p_teacher, homework_teacher),
+        homework_name    = p_name,
+        homework_teacher = p_teacher,
         homework_lesson  = COALESCE(p_lesson, homework_lesson),
         homework_duedate = COALESCE(p_duedate, homework_duedate),
         homework_desc    = COALESCE(p_desc, homework_desc),
@@ -1942,8 +1968,8 @@ BEGIN
     END IF;
 
     UPDATE Journal
-    SET journal_teacher = COALESCE(p_journal_teacher, journal_teacher),
-        journal_name = COALESCE(p_journal_name, journal_name)
+    SET journal_teacher = p_journal_teacher,
+        journal_name = NULLIF(TRIM(p_journal_name), '')
     WHERE journal_id = p_journal_id;
 
     CALL proc_create_audit_log('Journal', 'UPDATE', p_journal_id::TEXT, 'Updated journal ' || p_journal_id);
@@ -2011,7 +2037,7 @@ BEGIN
         lesson_name     = COALESCE(p_name, lesson_name),
         lesson_class    = COALESCE(p_class, lesson_class),
         lesson_subject  = COALESCE(p_subject, lesson_subject),
-        lesson_material = COALESCE(p_material, lesson_material),
+        lesson_material = p_material,
         lesson_teacher  = COALESCE(p_teacher, lesson_teacher),
         lesson_date     = COALESCE(p_date, lesson_date)
     WHERE lesson_id = p_lesson_id;
@@ -2051,8 +2077,8 @@ BEGIN
     UPDATE material
 	SET
 		material_name	= COALESCE(p_name, material_name),
-		material_desc	= COALESCE(p_desc, material_desc),
-		material_link	= COALESCE(p_link, material_link)
+		material_desc	= p_desc,
+		material_link	= p_link
 	WHERE material_id = p_id;
 
     CALL proc_create_audit_log('Material', 'UPDATE', p_id::text, 'Updated material');
@@ -2098,9 +2124,9 @@ BEGIN
     SET
         parent_name      = COALESCE(p_name, parent_name),
         parent_surname   = COALESCE(p_surname, parent_surname),
-        parent_patronym  = COALESCE(p_patronym, parent_patronym),
+        parent_patronym  = p_patronym,
         parent_phone     = COALESCE(p_phone, parent_phone),
-        parent_user_id   = COALESCE(p_user_id, parent_user_id)
+        parent_user_id   = p_user_id
     WHERE parent_id = p_id;
 
     CALL proc_create_audit_log('Parents', 'UPDATE', p_id::text, 'Updated parent');
@@ -2124,7 +2150,7 @@ BEGIN
 
     UPDATE Roles
     SET role_name = COALESCE(p_role_name, role_name),
-        role_desc = COALESCE(p_role_desc, role_desc)
+        role_desc = NULLIF(TRIM(p_role_desc), '')
     WHERE role_id = p_role_id;
 
     CALL proc_create_audit_log('Roles', 'UPDATE', p_role_id::TEXT, 'Updated role ' || p_role_id);
@@ -2177,10 +2203,10 @@ BEGIN
     SET
         student_name       = COALESCE(p_name, student_name),
         student_surname    = COALESCE(p_surname, student_surname),
-        student_patronym   = COALESCE(p_patronym, student_patronym),
+        student_patronym   = p_patronym,
         student_phone      = COALESCE(p_phone, student_phone),
-        student_user_id    = COALESCE(p_user_id, student_user_id),
-        student_class      = COALESCE(p_class, student_class)
+        student_user_id    = p_user_id,
+        student_class      = p_class
     WHERE student_id = p_id;
 
     CALL proc_create_audit_log('Students', 'UPDATE', p_id::text, 'Updated student');
@@ -2242,9 +2268,9 @@ BEGIN
         journal_id = COALESCE(p_journal_id, journal_id),
         student_id = COALESCE(p_student_id, student_id),
         lesson     = COALESCE(p_lesson, lesson),
-        mark       = COALESCE(p_mark, mark),
+        mark       = p_mark,
         status     = COALESCE(p_status, status),
-        note       = COALESCE(p_note, note)
+        note       = p_note
     WHERE data_id = p_id;
 
     CALL proc_create_audit_log('StudentData', 'UPDATE', p_id::text, 'Updated student data');
@@ -2271,7 +2297,7 @@ BEGIN
     UPDATE Subjects
     SET subject_name = COALESCE(p_subject_name, subject_name),
         cabinet = COALESCE(p_cabinet, cabinet),
-        subject_program = COALESCE(p_subject_program, subject_program)
+        subject_program = NULLIF(TRIM(p_subject_program), '')
     WHERE subject_id = p_subject_id;
 
     CALL proc_create_audit_log('Subjects', 'UPDATE', p_subject_id::TEXT, 'Updated subject ' || p_subject_id);
@@ -2316,9 +2342,9 @@ BEGIN
     SET
         teacher_name     = COALESCE(p_name, teacher_name),
         teacher_surname  = COALESCE(p_surname, teacher_surname),
-        teacher_patronym = COALESCE(p_patronym, teacher_patronym),
+        teacher_patronym = p_patronym,
         teacher_phone    = COALESCE(p_phone, teacher_phone),
-        teacher_user_id  = COALESCE(p_user_id, teacher_user_id)
+        teacher_user_id  = p_user_id
     WHERE teacher_id = p_id;
 
     CALL proc_create_audit_log('Teacher', 'UPDATE', p_id::text, 'Updated teacher');

@@ -43,12 +43,16 @@ BEGIN
     ELSE
         /* ---------- Generate username / email / password ---------- */
 
-		v_patronym_part :=
-		    substr(
-		        translit_uk_to_lat(coalesce(p_patronym, 'xxx')),
-		        1,
-		        3
-		    );
+		IF p_patronym IS NOT NULL THEN
+		    v_patronym_part :=
+		        substr(
+		            translit_uk_to_lat(p_patronym),
+		            1,
+		            3
+		        );
+		ELSE
+		    v_patronym_part := '';
+		END IF;
 
         v_username :=
 		    translit_uk_to_lat(p_name) ||

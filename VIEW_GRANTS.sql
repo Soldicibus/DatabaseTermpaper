@@ -47,3 +47,4 @@ GRANT SELECT ON ALL TABLES IN SCHEMA public TO admin;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO sadmin;
 GRANT SELECT ON vws_user_auth_info TO admin;
 GRANT SELECT ON vws_user_auth_info TO sadmin;
+GRANT SELECT ON vws_audits TO sadmin;

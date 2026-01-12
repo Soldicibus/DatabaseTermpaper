@@ -57,7 +57,7 @@ BEGIN
         lesson_name     = COALESCE(p_name, lesson_name),
         lesson_class    = COALESCE(p_class, lesson_class),
         lesson_subject  = COALESCE(p_subject, lesson_subject),
-        lesson_material = COALESCE(p_material, lesson_material),
+        lesson_material = p_material,
         lesson_teacher  = COALESCE(p_teacher, lesson_teacher),
         lesson_date     = COALESCE(p_date, lesson_date)
     WHERE lesson_id = p_lesson_id;

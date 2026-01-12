@@ -63,8 +63,8 @@ BEGIN
 
     UPDATE homework
     SET
-        homework_name    = COALESCE(p_name, homework_name),
-        homework_teacher = COALESCE(p_teacher, homework_teacher),
+        homework_name    = p_name,
+        homework_teacher = p_teacher,
         homework_lesson  = COALESCE(p_lesson, homework_lesson),
         homework_duedate = COALESCE(p_duedate, homework_duedate),
         homework_desc    = COALESCE(p_desc, homework_desc),

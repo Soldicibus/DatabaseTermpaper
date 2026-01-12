@@ -42,10 +42,10 @@ BEGIN
     SET
         student_name       = COALESCE(p_name, student_name),
         student_surname    = COALESCE(p_surname, student_surname),
-        student_patronym   = COALESCE(p_patronym, student_patronym),
+        student_patronym   = p_patronym,
         student_phone      = COALESCE(p_phone, student_phone),
         student_user_id    = COALESCE(p_user_id, student_user_id),
-        student_class      = COALESCE(p_class, student_class)
+        student_class      = p_class
     WHERE student_id = p_id;
 
     CALL proc_create_audit_log('Students', 'UPDATE', p_id::text, 'Updated student');

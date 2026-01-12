@@ -28,8 +28,8 @@ BEGIN
     UPDATE material
 	SET
 		material_name	= COALESCE(p_name, material_name),
-		material_desc	= COALESCE(p_desc, material_desc),
-		material_link	= COALESCE(p_link, material_link)
+		material_desc	= p_desc,
+		material_link	= p_link
 	WHERE material_id = p_id;
 
     CALL proc_create_audit_log('Material', 'UPDATE', p_id::text, 'Updated material');

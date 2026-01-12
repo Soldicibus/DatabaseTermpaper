@@ -13,8 +13,8 @@ BEGIN
     END IF;
 
     UPDATE Journal
-    SET journal_teacher = COALESCE(p_journal_teacher, journal_teacher),
-        journal_name = COALESCE(p_journal_name, journal_name)
+    SET journal_teacher = p_journal_teacher,
+        journal_name = NULLIF(TRIM(p_journal_name), '')
     WHERE journal_id = p_journal_id;
 
     CALL proc_create_audit_log('Journal', 'UPDATE', p_journal_id::TEXT, 'Updated journal ' || p_journal_id);

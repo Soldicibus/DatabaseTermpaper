@@ -34,7 +34,7 @@ BEGIN
     SET
         teacher_name     = COALESCE(p_name, teacher_name),
         teacher_surname  = COALESCE(p_surname, teacher_surname),
-        teacher_patronym = COALESCE(p_patronym, teacher_patronym),
+        teacher_patronym = p_patronym,
         teacher_phone    = COALESCE(p_phone, teacher_phone),
         teacher_user_id  = COALESCE(p_user_id, teacher_user_id)
     WHERE teacher_id = p_id;
