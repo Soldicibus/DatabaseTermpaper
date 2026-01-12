@@ -1,3 +1,5 @@
+DROP FUNCTION get_student_grade_entries;
+
 CREATE OR REPLACE FUNCTION get_student_grade_entries(
     p_student_id INT,
     p_start_date TIMESTAMP WITHOUT TIME ZONE DEFAULT (CURRENT_DATE - INTERVAL '30 days')::TIMESTAMP WITHOUT TIME ZONE,
@@ -7,9 +9,11 @@ RETURNS TABLE (
     lesson_id INT,
     lesson_date TIMESTAMP WITHOUT TIME ZONE,
     subject_name TEXT,
+	journal_id INT,
     data_id INT,
     mark SMALLINT,
-    status TEXT
+    status TEXT,
+	note TEXT
 )
 LANGUAGE sql
 SECURITY DEFINER
@@ -19,9 +23,11 @@ AS $$
 	l.lesson_id,
         l.lesson_date,
         s.subject_name,
-	sd.data_id,
+		sd.journal_id,
+		sd.data_id,
         sd.mark,
-        sd.status
+        sd.status,
+		sd.note
     FROM StudentData sd
     JOIN Lessons l ON sd.lesson = l.lesson_id
     JOIN Subjects s ON l.lesson_subject = s.subject_id
