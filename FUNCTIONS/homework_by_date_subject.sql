@@ -8,8 +8,8 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 	SELECT h.homework_desc
-	FROM vws.homeworks h
-	JOIN vws.lessons l ON h.homework_lesson = l.lesson_id
+	FROM Homework h
+	JOIN Lessons l ON h.homework_lesson = l.lesson_id
 	WHERE h.homework_duedate = p_date
 	AND (p_subject IS NULL OR l.lesson_subject = p_subject);
 $$;

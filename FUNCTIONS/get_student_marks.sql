@@ -9,7 +9,7 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 	SELECT sd.mark, l.lesson_date
-	FROM vws.student_data sd
+	FROM StudentData sd
 	JOIN Journal j ON sd.journal_id = j.journal_id
 	JOIN Lessons l ON j.journal_teacher = l.lesson_teacher
 	WHERE sd.mark IS NOT NULL

@@ -9,7 +9,7 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 SELECT COUNT(*) * 550
-	FROM vws.lessons
+	FROM Lessons
 	WHERE lesson_teacher = p_teacher_id
 	AND lesson_date BETWEEN p_from AND p_to;
 $$;

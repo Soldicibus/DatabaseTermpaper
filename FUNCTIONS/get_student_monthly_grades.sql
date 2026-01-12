@@ -27,9 +27,9 @@ BEGIN
         l.lesson_date,
         l.lesson_id,
         l.lesson_teacher
-    FROM vws.student_data sd
-    JOIN vws.lessons l ON sd.lesson = l.lesson_id
-    JOIN vws.subjects sub ON l.lesson_subject = sub.subject_id
+    FROM StudentData sd
+    JOIN Lessons l ON sd.lesson = l.lesson_id
+    JOIN Subjects sub ON l.lesson_subject = sub.subject_id
     WHERE sd.student_id = p_student_id
       AND sd.mark IS NOT NULL
       AND EXTRACT(MONTH FROM l.lesson_date) = EXTRACT(MONTH FROM COALESCE(p_month, CURRENT_DATE))

@@ -78,8 +78,8 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 	SELECT s.student_id, s.student_name, s.student_surname, COUNT(*)
-	FROM vws.students s
-	JOIN vws.student_data sd ON s.student_id = sd.student_id
+	FROM vws_students s
+	JOIN vws_student_data sd ON s.student_id = sd.student_id
 	WHERE s.student_class = p_class
 	AND sd.status IN ('Н','Не присутній')
 	GROUP BY s.student_id
@@ -119,9 +119,9 @@ AS $$
             2
         ) AS attendance
 
-    FROM vws.student_parents sp
-    JOIN vws.students s ON sp.student_id_ref = s.student_id
-    LEFT JOIN vws.student_data j ON j.student_id = s.student_id
+    FROM vws_student_parents sp
+    JOIN vws_students s ON sp.student_id_ref = s.student_id
+    LEFT JOIN vws_student_data j ON j.student_id = s.student_id
 
     WHERE sp.parent_id_ref = p_parent_id
 
@@ -148,7 +148,7 @@ SET search_path = public, pg_temp
 AS $$
 BEGIN
     IF EXISTS (
-        SELECT 1 FROM vws.students WHERE student_user_id = p_user_id
+        SELECT 1 FROM vws_students WHERE student_user_id = p_user_id
     ) THEN
         RETURN QUERY
         SELECT
@@ -159,11 +159,11 @@ BEGIN
 	        s.student_patronym,
             u.email,
             s.student_phone
-        FROM vws.students s
-        JOIN vws.users u ON u.user_id = s.student_user_id
+        FROM vws_students s
+        JOIN vws_users u ON u.user_id = s.student_user_id
         WHERE s.student_user_id = p_user_id;
     ELSIF EXISTS (
-        SELECT 1 FROM vws.teachers WHERE teacher_user_id = p_user_id
+        SELECT 1 FROM vws_teachers WHERE teacher_user_id = p_user_id
     ) THEN
         RETURN QUERY
         SELECT
@@ -174,11 +174,11 @@ BEGIN
 			t.teacher_patronym,
             u.email,
             t.teacher_phone
-        FROM vws.teachers t
-        JOIN vws.users u ON u.user_id = t.teacher_user_id
+        FROM vws_teachers t
+        JOIN vws_users u ON u.user_id = t.teacher_user_id
         WHERE t.teacher_user_id = p_user_id;
     ELSIF EXISTS (
-        SELECT 1 FROM vws.parents WHERE parent_user_id = p_user_id
+        SELECT 1 FROM vws_parents WHERE parent_user_id = p_user_id
     ) THEN
         RETURN QUERY
         SELECT
@@ -189,8 +189,8 @@ BEGIN
 			p.parent_patronym,
             u.email,
             p.parent_phone
-        FROM vws.parents p
-        JOIN vws.users u ON u.user_id = p.parent_user_id
+        FROM vws_parents p
+        JOIN vws_users u ON u.user_id = p.parent_user_id
         WHERE p.parent_user_id = p_user_id;
 
     ELSE
@@ -211,7 +211,7 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 	SELECT homework_name, homework_desc
-	FROM vws.homeworks
+	FROM vws_homeworks
 	WHERE homework_class = p_class
 	AND homework_duedate = p_date;
 $$;
@@ -242,9 +242,9 @@ AS $$
 	sd.data_id,
         sd.mark,
         sd.status
-    FROM vws.student_data sd
-    JOIN vws.lessons l ON sd.lesson = l.lesson_id
-    JOIN vws.subjects s ON l.lesson_subject = s.subject_id
+    FROM vws_student_data sd
+    JOIN vws_lessons l ON sd.lesson = l.lesson_id
+    JOIN vws_subjects s ON l.lesson_subject = s.subject_id
     WHERE sd.student_id = p_student_id
       AND l.lesson_date BETWEEN p_start_date AND p_end_date
 	  AND sd.mark IS NOT NULL
@@ -263,7 +263,7 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 	SELECT sd.mark, l.lesson_date
-	FROM vws.student_data sd
+	FROM vws_student_data sd
 	JOIN Journal j ON sd.journal_id = j.journal_id
 	JOIN Lessons l ON j.journal_teacher = l.lesson_teacher
 	WHERE sd.mark IS NOT NULL
@@ -301,9 +301,9 @@ BEGIN
         l.lesson_date,
         l.lesson_id,
         l.lesson_teacher
-    FROM vws.student_data sd
-    JOIN vws.lessons l ON sd.lesson = l.lesson_id
-    JOIN vws.subjects sub ON l.lesson_subject = sub.subject_id
+    FROM vws_student_data sd
+    JOIN vws_lessons l ON sd.lesson = l.lesson_id
+    JOIN vws_subjects sub ON l.lesson_subject = sub.subject_id
     WHERE sd.student_id = p_student_id
       AND sd.mark IS NOT NULL
       AND EXTRACT(MONTH FROM l.lesson_date) = EXTRACT(MONTH FROM COALESCE(p_month, CURRENT_DATE))
@@ -325,7 +325,7 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 SELECT COUNT(*) * 550
-	FROM vws.lessons
+	FROM vws_lessons
 	WHERE lesson_teacher = p_teacher_id
 	AND lesson_date BETWEEN p_from AND p_to;
 $$;
@@ -340,8 +340,8 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 	SELECT r.role_name
-	FROM vws.user_roles ur
-	JOIN vws.roles r ON ur.role_id = r.role_id
+	FROM vws_user_roles ur
+	JOIN vws_roles r ON ur.role_id = r.role_id
 	WHERE ur.user_id = p_user_id;
 $$;
 
@@ -357,8 +357,8 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 	SELECT h.homework_desc
-	FROM vws.homeworks h
-	JOIN vws.lessons l ON h.homework_lesson = l.lesson_id
+	FROM vws_homeworks h
+	JOIN vws_lessons l ON h.homework_lesson = l.lesson_id
 	WHERE h.homework_duedate = p_date
 	AND (p_subject IS NULL OR l.lesson_subject = p_subject);
 $$;
@@ -418,8 +418,8 @@ DECLARE
 BEGIN
     SELECT COUNT(*)::INT
     INTO total
-    FROM vws.student_data sd
-    JOIN vws.lessons l ON l.lesson_id = sd.lesson
+    FROM vws_student_data sd
+    JOIN vws_lessons l ON l.lesson_id = sd.lesson
     WHERE sd.student_id = p_student_id
       AND l.lesson_date BETWEEN p_from AND p_to;
 
@@ -436,8 +436,8 @@ BEGIN
             (COUNT(*) FILTER (WHERE sd.status IN ('П','Присутній'))::NUMERIC / total) * 100,
             2
         )
-    FROM vws.student_data sd
-    JOIN vws.lessons l ON l.lesson_id = sd.lesson
+    FROM vws_student_data sd
+    JOIN vws_lessons l ON l.lesson_id = sd.lesson
     WHERE sd.student_id = p_student_id
       AND l.lesson_date BETWEEN p_from AND p_to;
 END;
@@ -455,10 +455,10 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 	SELECT l.lesson_name, sd.mark, h.homework_desc
-	FROM vws.students s
-	JOIN vws.lessons l ON l.lesson_class = s.student_class
-	LEFT JOIN vws.student_data sd ON sd.student_id = s.student_id
-	LEFT JOIN vws.homeworks h ON h.homework_class = s.student_class
+	FROM vws_students s
+	JOIN vws_lessons l ON l.lesson_class = s.student_class
+	LEFT JOIN vws_student_data sd ON sd.student_id = s.student_id
+	LEFT JOIN vws_homeworks h ON h.homework_class = s.student_class
 	WHERE s.student_id = p_student_id
 	AND l.lesson_date = p_date;
 $$;

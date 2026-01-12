@@ -33,6 +33,7 @@ GRANT EXECUTE ON FUNCTION login_user(TEXT, TEXT) TO guest;
 GRANT EXECUTE ON FUNCTION translit_uk_to_lat(TEXT) TO guest;
 GRANT EXECUTE ON FUNCTION get_user_role(INT) TO guest;
 GRANT EXECUTE ON FUNCTION get_data_by_user_id(INT) TO guest;
+GRANT SELECT ON FUNCTION vws_all_user_details TO guest;
 GRANT EXECUTE ON PROCEDURE proc_register_user(VARCHAR, VARCHAR, TEXT, INT) TO guest;
 
 -- =================================================================================================

@@ -8,7 +8,7 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 	SELECT homework_name, homework_desc
-	FROM vws.homeworks
+	FROM Homework
 	WHERE homework_class = p_class
 	AND homework_duedate = p_date;
 $$;

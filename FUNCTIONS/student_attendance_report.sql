@@ -17,8 +17,8 @@ DECLARE
 BEGIN
     SELECT COUNT(*)::INT
     INTO total
-    FROM vws.student_data sd
-    JOIN vws.lessons l ON l.lesson_id = sd.lesson
+    FROM StudentData sd
+    JOIN Lessons l ON l.lesson_id = sd.lesson
     WHERE sd.student_id = p_student_id
       AND l.lesson_date BETWEEN p_from AND p_to;
 
@@ -35,8 +35,8 @@ BEGIN
             (COUNT(*) FILTER (WHERE sd.status IN ('П','Присутній'))::NUMERIC / total) * 100,
             2
         )
-    FROM vws.student_data sd
-    JOIN vws.lessons l ON l.lesson_id = sd.lesson
+    FROM StudentData sd
+    JOIN Lessons l ON l.lesson_id = sd.lesson
     WHERE sd.student_id = p_student_id
       AND l.lesson_date BETWEEN p_from AND p_to;
 END;
