@@ -1,5 +1,18 @@
 -- Base views for all tables to be used in procedures
-CREATE OR REPLACE VIEW vws_users WITH (security_barrier = true) AS SELECT user_id, username, email FROM Users; -- Exclude password hash for security
+CREATE OR REPLACE VIEW vws_users WITH (security_barrier = true) AS 
+SELECT 
+    u.user_id, 
+    u.username, 
+    u.email 
+FROM Users u
+WHERE NOT EXISTS (
+    SELECT 1 
+    FROM UserRole ur
+    JOIN Roles r ON ur.role_id = r.role_id
+    WHERE ur.user_id = u.user_id 
+    AND r.role_name = 'sadmin'
+);
+CREATE OR REPLACE VIEW vws_emails AS SELECT u.user_id, u.email FROM Users u;
 CREATE OR REPLACE VIEW vws_roles AS SELECT * FROM Roles;
 CREATE OR REPLACE VIEW vws_user_roles AS SELECT * FROM UserRole;
 CREATE OR REPLACE VIEW vws_teachers AS SELECT * FROM Teacher;

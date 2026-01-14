@@ -181,6 +181,8 @@ $$;
 
 
 -- Source: FUNCTIONS\get_student_grade_entries.sql
+DROP FUNCTION get_student_grade_entries;
+
 CREATE OR REPLACE FUNCTION get_student_grade_entries(
     p_student_id INT,
     p_start_date TIMESTAMP WITHOUT TIME ZONE DEFAULT (CURRENT_DATE - INTERVAL '30 days')::TIMESTAMP WITHOUT TIME ZONE,
@@ -249,7 +251,7 @@ RETURNS TABLE (
     mark SMALLINT,
     status journal_status_enum,
     note TEXT,
-    lesson_date DATE,
+    lesson_date TIMESTAMP WITHOUT TIME ZONE,
     lesson_id INT,
     teacher_id INT
 )
@@ -625,7 +627,7 @@ BEGIN
         USING ERRCODE = '23502';
     END IF;
 
-    IF NOT p_day_weekday IN ('Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П''ятниця') THEN
+    IF NOT p_day_weekday IN ('Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П’ятниця') THEN
         RAISE EXCEPTION 'Invalid weekday: %', p_day_weekday
         USING ERRCODE = '23514';
     END IF;
@@ -858,12 +860,16 @@ BEGIN
     ELSE
         /* ---------- Generate username / email / password ---------- */
 
-		v_patronym_part :=
-		    substr(
-		        translit_uk_to_lat(coalesce(p_patronym, 'xxx')),
-		        1,
-		        3
-		    );
+		IF p_patronym IS NOT NULL THEN
+		    v_patronym_part :=
+		        substr(
+		            translit_uk_to_lat(p_patronym),
+		            1,
+		            3
+		        );
+		ELSE
+		    v_patronym_part := '';
+		END IF;
 
         v_username :=
 		    translit_uk_to_lat(p_name) ||
@@ -997,12 +1003,16 @@ BEGIN
     ELSE
         /* ---------- Generate username / email / password ---------- */
 
-		v_patronym_part :=
-		    substr(
-		        translit_uk_to_lat(coalesce(p_patronym, 'xxx')),
-		        1,
-		        3
-		    );
+		IF p_patronym IS NOT NULL THEN
+		    v_patronym_part :=
+		        substr(
+		            translit_uk_to_lat(p_patronym),
+		            1,
+		            3
+		        );
+		ELSE
+		    v_patronym_part := '';
+		END IF;
 
         v_username :=
 		    translit_uk_to_lat(p_name) ||
@@ -1196,12 +1206,16 @@ BEGIN
     ELSE
 	        /* ---------- Generate username / email / password ---------- */
 
-		v_patronym_part :=
-		    substr(
-		        translit_uk_to_lat(coalesce(p_patronym, 'xxx')),
-		        1,
-		        3
-		    );
+		IF p_patronym IS NOT NULL THEN
+		    v_patronym_part :=
+		        substr(
+		            translit_uk_to_lat(p_patronym),
+		            1,
+		            3
+		        );
+		ELSE
+		    v_patronym_part := '';
+		END IF;
 
         v_username :=
 		    translit_uk_to_lat(p_name) ||
@@ -1483,9 +1497,6 @@ END;
 $$;
 
 
--- Source: PROCEDURES\proc_delete_procedures.sql
-
-
 -- Source: PROCEDURES\proc_delete_role.sql
 CREATE OR REPLACE PROCEDURE proc_delete_role(
     IN p_role_id INT
@@ -1758,7 +1769,8 @@ BEGIN
         RAISE EXCEPTION 'Password cannot be empty'
         USING ERRCODE = '23514';
     END IF;
-
+    
+    p_new_password := crypt(p_new_password, gen_salt('bf'));
     UPDATE users
     SET password = p_new_password
     WHERE user_id = p_user_id;
@@ -2126,7 +2138,7 @@ BEGIN
         parent_surname   = COALESCE(p_surname, parent_surname),
         parent_patronym  = p_patronym,
         parent_phone     = COALESCE(p_phone, parent_phone),
-        parent_user_id   = p_user_id
+        parent_user_id   = COALESCE(p_user_id, parent_user_id)
     WHERE parent_id = p_id;
 
     CALL proc_create_audit_log('Parents', 'UPDATE', p_id::text, 'Updated parent');
@@ -2205,7 +2217,7 @@ BEGIN
         student_surname    = COALESCE(p_surname, student_surname),
         student_patronym   = p_patronym,
         student_phone      = COALESCE(p_phone, student_phone),
-        student_user_id    = p_user_id,
+        student_user_id    = COALESCE(p_user_id, student_user_id),
         student_class      = p_class
     WHERE student_id = p_id;
 
@@ -2344,7 +2356,7 @@ BEGIN
         teacher_surname  = COALESCE(p_surname, teacher_surname),
         teacher_patronym = p_patronym,
         teacher_phone    = COALESCE(p_phone, teacher_phone),
-        teacher_user_id  = p_user_id
+        teacher_user_id  = COALESCE(p_user_id, teacher_user_id)
     WHERE teacher_id = p_id;
 
     CALL proc_create_audit_log('Teacher', 'UPDATE', p_id::text, 'Updated teacher');

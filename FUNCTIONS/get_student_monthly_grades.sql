@@ -1,6 +1,6 @@
 CREATE OR REPLACE FUNCTION get_student_monthly_grades(
     p_student_id INT,
-    p_month DATE DEFAULT CURRENT_DATE
+    p_month TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_DATE
 )
 RETURNS TABLE (
     data_id INT,
@@ -8,7 +8,7 @@ RETURNS TABLE (
     mark SMALLINT,
     status journal_status_enum,
     note TEXT,
-    lesson_date DATE,
+    lesson_date TIMESTAMP WITHOUT TIME ZONE,
     lesson_id INT,
     teacher_id INT
 )

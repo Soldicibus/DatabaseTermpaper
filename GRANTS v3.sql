@@ -3,13 +3,13 @@
 -- =================================================================================================
 -- Revoke all permissions to ensure a clean slate and strict security
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM PUBLIC;
+REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC;
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC;
 REVOKE ALL ON ALL PROCEDURES IN SCHEMA public FROM PUBLIC;
 
 -- Re-create Roles if they don't exist
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'guest') THEN CREATE ROLE guest; END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'student') THEN CREATE ROLE student; END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'parent') THEN CREATE ROLE parent; END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'teacher') THEN CREATE ROLE teacher; END IF;
@@ -19,7 +19,7 @@ END
 $$;
 
 -- Grant usage on schema
-GRANT USAGE ON SCHEMA public TO guest;
+GRANT USAGE ON SCHEMA public TO defaultuser;
 GRANT USAGE ON SCHEMA public TO student;
 GRANT USAGE ON SCHEMA public TO parent;
 GRANT USAGE ON SCHEMA public TO teacher;
@@ -27,17 +27,24 @@ GRANT USAGE ON SCHEMA public TO admin;
 GRANT USAGE ON SCHEMA public TO sadmin;
 
 -- =================================================================================================
--- GUEST (Base Access)
+-- defaultuser (Base Access)
 -- =================================================================================================
-GRANT EXECUTE ON FUNCTION login_user(TEXT, TEXT) TO guest;
-GRANT EXECUTE ON FUNCTION translit_uk_to_lat(TEXT) TO guest;
-GRANT EXECUTE ON FUNCTION get_user_role(INT) TO guest;
-GRANT EXECUTE ON PROCEDURE proc_register_user(VARCHAR, VARCHAR, TEXT, INT) TO guest;
+-- Allow defaultuser to switch to these roles (Required for bouncer.js)
+GRANT student TO defaultuser;
+GRANT parent TO defaultuser;
+GRANT teacher TO defaultuser;
+GRANT admin TO defaultuser;
+GRANT sadmin TO defaultuser;
+
+GRANT EXECUTE ON FUNCTION login_user(TEXT, TEXT) TO defaultuser;
+GRANT EXECUTE ON FUNCTION translit_uk_to_lat(TEXT) TO defaultuser;
+GRANT EXECUTE ON FUNCTION get_user_role(INT) TO defaultuser;
+GRANT EXECUTE ON PROCEDURE proc_register_user(VARCHAR, VARCHAR, TEXT, INT) TO defaultuser;
+GRANT EXECUTE ON PROCEDURE proc_reset_user_password(INT, VARCHAR) TO defaultuser;
 
 -- =================================================================================================
 -- STUDENT
 -- =================================================================================================
-GRANT guest TO student;
 GRANT EXECUTE ON FUNCTION get_data_by_user_id(INT) TO student;
 GRANT SELECT on vws_all_user_details TO student;
 
@@ -48,7 +55,7 @@ GRANT EXECUTE ON FUNCTION get_homework_by_date_class(VARCHAR, DATE) TO student;
 GRANT EXECUTE ON FUNCTION homework_by_date_subject(DATE, INT) TO student;
 GRANT EXECUTE ON FUNCTION student_attendance_report(INT, DATE, DATE) TO student;
 GRANT EXECUTE ON FUNCTION student_day_plan(INT, DATE) TO student;
-GRANT EXECUTE ON FUNCTION get_student_monthly_grades(INT, DATE) TO student;
+GRANT EXECUTE ON FUNCTION get_student_monthly_grades(INT,TIMESTAMP WITHOUT TIME ZONE) TO student;
 
 -- Views
 GRANT SELECT ON vws_student_profile TO student;
@@ -59,11 +66,11 @@ GRANT SELECT ON vw_homework_by_student_or_class TO student;
 GRANT SELECT ON vw_view_timetable_week TO student;
 GRANT SELECT ON vw_student_perfomance_matrix TO student;
 GRANT SELECT ON vw_students_by_class TO student;
+GRANT SELECT ON vws_users TO student;
 
 -- =================================================================================================
 -- PARENT
 -- =================================================================================================
-GRANT guest TO parent;
 GRANT EXECUTE ON FUNCTION get_data_by_user_id(INT) TO parent;
 GRANT SELECT on vws_all_user_details TO parent;
 
@@ -76,7 +83,7 @@ GRANT EXECUTE ON FUNCTION get_homework_by_date_class(VARCHAR, DATE) TO parent;
 GRANT EXECUTE ON FUNCTION homework_by_date_subject(DATE, INT) TO parent;
 GRANT EXECUTE ON FUNCTION student_attendance_report(INT, DATE, DATE) TO parent;
 GRANT EXECUTE ON FUNCTION student_day_plan(INT, DATE) TO parent;
-GRANT EXECUTE ON FUNCTION get_student_monthly_grades(INT, DATE) TO parent;
+GRANT EXECUTE ON FUNCTION get_student_monthly_grades(INT, TIMESTAMP WITHOUT TIME ZONE) TO parent;
 -- Views
 GRANT SELECT ON vws_student_profile TO parent;
 GRANT SELECT ON vws_class_schedule TO parent;
@@ -129,7 +136,6 @@ GRANT SELECT ON vws_students TO teacher;
 -- =================================================================================================
 -- ADMIN
 -- =================================================================================================
-GRANT guest TO admin;
 GRANT EXECUTE ON FUNCTION get_data_by_user_id(INT) TO admin;
 GRANT SELECT on vws_all_user_details TO admin;
 
@@ -187,12 +193,6 @@ GRANT EXECUTE ON PROCEDURE proc_assign_student_parent(INT, INT) TO admin;
 GRANT EXECUTE ON PROCEDURE proc_unassign_student_parent(INT, INT) TO admin;
 GRANT EXECUTE ON PROCEDURE proc_reset_user_password(INT, VARCHAR) TO admin;
 GRANT EXECUTE ON PROCEDURE proc_create_audit_log(VARCHAR, VARCHAR, TEXT, TEXT) TO admin;
-
--- Grant Read Access to ALL Views (covering tables)
--- Note: Postgres does not have "GRANT SELECT ON ALL VIEWS", so we grant on tables (which includes views) 
--- BUT we must be careful. However, since we revoked ALL on tables at the start, 
--- and if we only run "GRANT SELECT ON vws_..." it is safer.
--- Assuming standard views exist for all tables:
 GRANT SELECT ON vws_users TO admin;
 GRANT SELECT ON vws_roles TO admin;
 GRANT SELECT ON vws_user_roles TO admin;

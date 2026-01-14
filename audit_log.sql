@@ -4,6 +4,7 @@ CREATE TABLE AuditLog (
     operation VARCHAR(20) NOT NULL,
     record_id TEXT,
     changed_by VARCHAR(50) DEFAULT SESSION_USER,
+    username VARCHAR(50) DEFAULT current_setting('app.current_username', true),
     changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     details TEXT
 );

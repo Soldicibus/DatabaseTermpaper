@@ -19,6 +19,8 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS prevent_fast_double_mark ON StudentData;
+
 CREATE TRIGGER prevent_fast_double_mark
 BEFORE INSERT ON StudentData
 FOR EACH ROW

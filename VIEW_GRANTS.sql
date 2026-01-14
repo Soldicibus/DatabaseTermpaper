@@ -1,3 +1,5 @@
+GRANT SELECT ON vws_roles TO guest;
+GRANT SELECT ON vws_user_roles TO guest;
 GRANT SELECT ON vw_class_attendance_last_month TO teacher;
 GRANT SELECT ON vw_class_ranking TO teacher;
 GRANT SELECT ON vw_student_perfomance_matrix TO teacher;
@@ -11,20 +13,17 @@ GRANT SELECT ON vw_view_timetable_week TO teacher;
 GRANT SELECT ON vws_class_schedule TO teacher;
 GRANT SELECT ON vws_full_journal TO teacher;
 GRANT SELECT ON vws_teacher_profile TO teacher;
-GRANT SELECT ON vws_student_profile TO teacher;
-GRANT SELECT ON vws_users TO teacher;
-GRANT SELECT ON vws_roles TO teacher;
-GRANT SELECT ON vws_user_roles TO teacher;
+GRANT SELECT ON vws_emails TO teacher;
 GRANT SELECT ON vws_teachers TO teacher;
 GRANT SELECT ON vws_subjects TO teacher;
-GRANT SELECT ON vws_materials TO teacher;
+GRANT SELECT ON vws_materials TO teacher, student;
 GRANT SELECT ON vws_journals TO teacher;
 GRANT SELECT ON vws_days TO teacher;
 GRANT SELECT ON vws_classes TO teacher;
 GRANT SELECT ON vws_timetables TO teacher;
 GRANT SELECT ON vws_lessons TO teacher;
 GRANT SELECT ON vws_homeworks TO teacher;
-GRANT SELECT ON vws_students TO teacher;
+GRANT SELECT ON vws_students TO teacher, student;
 GRANT SELECT ON vws_parents TO teacher;
 GRANT SELECT ON vws_student_parents TO teacher;
 GRANT SELECT ON vws_student_data TO teacher;
@@ -32,6 +31,7 @@ GRANT SELECT ON vw_homework_by_student_or_class TO student;
 GRANT SELECT ON vw_homework_tomorrow TO student;
 GRANT SELECT ON vw_view_timetable_week TO student;
 GRANT SELECT ON vw_students_by_class TO student; -- Can see classmates
+GRANT SELECT ON vws_all_students TO student; -- Can see student count
 GRANT SELECT ON vw_student_perfomance_matrix TO student;
 GRANT SELECT ON vws_class_schedule TO student;
 GRANT SELECT ON vws_student_profile TO student;
