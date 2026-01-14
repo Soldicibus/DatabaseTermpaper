@@ -10,7 +10,6 @@ BEGIN
     IF EXISTS (SELECT 1 FROM Lessons WHERE lesson_teacher = OLD.teacher_id) THEN
         
         -- Спроба знайти вчителя для заміни.
-        -- Логіка: Шукаємо класного керівника класу, де проводився урок? 
         -- Для простоти беремо першого доступного вчителя, який НЕ видаляється.
         SELECT teacher_id INTO fallback_teacher_id 
         FROM Teacher 

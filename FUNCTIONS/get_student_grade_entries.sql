@@ -33,6 +33,5 @@ AS $$
     JOIN Subjects s ON l.lesson_subject = s.subject_id
     WHERE sd.student_id = p_student_id
       AND l.lesson_date BETWEEN p_start_date AND p_end_date
-	  AND sd.mark IS NOT NULL
     ORDER BY l.lesson_date DESC, s.subject_name;
 $$;
